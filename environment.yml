@@ -1,0 +1,12 @@
+name: pyobjmap
+channels:
+- conda-forge
+- defaults
+dependencies:
+- python=3
+- matplotlib
+- numpy
+- pip
+- scipy
+- ipykernel
+- munch
