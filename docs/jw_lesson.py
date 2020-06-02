@@ -25,7 +25,7 @@ import scipy.spatial as spat
 import scipy.stats as stats
 import scipy.optimize as opt
 
-dat = munch.munchify(io.loadmat("mercator_temperature.mat", squeeze_me=True, chars_as_strings=True))
+dat = munch.munchify(io.loadmat("../data/mercator_temperature.mat", squeeze_me=True, chars_as_strings=True))
 
 # %%
 dat.keys()

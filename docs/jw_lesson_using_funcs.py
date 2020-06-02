@@ -20,7 +20,7 @@ import numpy as np
 import scipy.io as io
 from pyobjmap import objmap
 
-dat = munch.munchify(io.loadmat("mercator_temperature.mat", squeeze_me=True, chars_as_strings=True))
+dat = munch.munchify(io.loadmat("../data/mercator_temperature.mat", squeeze_me=True, chars_as_strings=True))
 
 
 # %%

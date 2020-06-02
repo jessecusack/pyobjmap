@@ -211,7 +211,7 @@ ax.set_title('l = {:1.0f} km'.format(l/1000))
 # %%
 nlon = 50
 nlat = 100
-l = 700e3
+l = 500e3
 
 lonm = np.linspace(dsbox.longitude[0], dsbox.longitude[-1], nlon, retstep=False)
 latm = np.linspace(dsbox.latitude[0], dsbox.latitude[-1], nlat, retstep=False)
@@ -220,7 +220,7 @@ latmg, lonmg = np.meshgrid(latm, lonm, indexing='ij')
 ymg = rearth*np.deg2rad(latmg - latmid)
 xmg = rearth*(np.deg2rad(lonmg - lonmid))*np.cos(np.deg2rad(latmg))
 
-tg = objmap.objmap(xd, yd, t, xmg, ymg, a, [l, l, theta], cfunc='gauss2d', detrend="mean")
+tg = objmap.objmap(xd, yd, t, xmg, ymg, a, l, cfunc='gauss', detrend="mean")
 
 # %%
 clevs = np.linspace(4, 24, 11)
@@ -263,13 +263,14 @@ ax.set_aspect('equal')
 CC = ax.contourf(xmidg, ymidg, objmap.gauss2d(xmidg, ymidg, a, 6*l, l, 2), clev, extend='both')
 plt.colorbar(CC)
 
-
 # %%
-def objmap2(xd, yd, zd, xm, ym, a, lx, ly, theta=0, cfunc='gauss2d'):
+import scipy.spatial as spat
+
+def objmap2(xd, yd, zd, xm, ym, a, lx, ly, theta=0):
     """Needs docstring."""
 
     # Use the covariance function specified.
-    cfunc = objmap.funccheck(cfunc)
+    cfunc = objmap.gauss2d
 
     ztrend = zd.mean()
 
@@ -283,27 +284,55 @@ def objmap2(xd, yd, zd, xm, ym, a, lx, ly, theta=0, cfunc='gauss2d'):
     # TODO: is it really necessary to move coordinates to origin? Probably not...
     xdmid = np.mean(xd)
     ydmid = np.mean(yd)
-    xyd = np.stack((xd - xdmid, yd - ydmid), 1)
-    Rdd = spat.distance.cdist(xyd, xyd)
+    xd = xd - xdmid
+    yd = yd - ydmid
+
+    xdist = xd[:, np.newaxis] - xd[np.newaxis, :]
+    ydist = yd[:, np.newaxis] - yd[np.newaxis, :]
 
     # Data - data covarance matrix using the function.
-    Cdd0 = cfunc(Rdd, 1, l)
+    Cdd0 = cfunc(xdist, ydist, 1, lx, ly, theta)
     # Add variance back in.
     lam = (C.diagonal().mean() - a)/a
     Cdd = Cdd0 + np.eye(*Cdd0.shape)*lam
 
     # Construct model - data distance matrix.
-    xym = np.stack((xm.ravel() - xdmid, ym.ravel() - ydmid), 1)
-    Rmd = spat.distance.cdist(xym, xyd)
+    xm = xm - xdmid
+    ym = ym - ydmid
+    xmddist = xm.ravel()[:, np.newaxis] - xd.ravel()[np.newaxis, :]
+    ymddist = ym.ravel()[:, np.newaxis] - yd.ravel()[np.newaxis, :]
 
     # Construct the model - data covariance matrix.
-    Cmd = cfunc(Rmd, 1, l)
+    Cmd = cfunc(xmddist, ymddist, 1, lx, ly, theta)
 
     # Do the objective mapping.
     A, _, _, _ = np.linalg.lstsq(Cdd, zdetrend, rcond=None)
+
+    print(A.shape)
+    print(Cmd.shape)
 
     zmg = (Cmd @ A).reshape(xm.shape)
 
     zmg += ztrend
 
     return zmg
+
+
+# %%
+l = 500e3
+theta = 2
+
+tg = objmap2(xd, yd, t, xmg, ymg, a, l, 6*l, theta)
+
+# %%
+clevs = np.linspace(4, 24, 11)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+C = ax.contourf(lonm, latm, tg, clevs, extend='both')
+ax.scatter(lond, latd, s=2)
+plt.colorbar(C)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend='both')
+ax.scatter(lond, latd, s=2)
+plt.colorbar(C)
