@@ -62,6 +62,7 @@ a, l = popt
 # %%
 nlon = 50
 nlat = 100
+l = 200
 
 lonm, _ = np.linspace(dat.ax[0], dat.ax[1], nlon, retstep=True)
 latm, _ = np.linspace(dat.ax[2], dat.ax[3], nlat, retstep=True)
@@ -70,7 +71,7 @@ latmg, lonmg = np.meshgrid(latm, lonm, indexing='ij')
 ymg = rearth*np.deg2rad(latmg - latmid)/1000
 xmg = rearth*(np.deg2rad(lonmg - lonmid))*np.cos(np.deg2rad(latmg))/1000
 
-tg = objmap.objmap(xd, yd, t, xmg, ymg, a, l, cfunc='gauss')
+tg = objmap.objmap(xd, yd, t, xmg, ymg, a, l, cfunc='gauss', detrend="mean")
 
 # %%
 clevs = np.linspace(14, 24, 11)
