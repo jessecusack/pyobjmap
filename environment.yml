@@ -10,3 +10,6 @@ dependencies:
 - scipy
 - ipykernel
 - munch
+- cartopy
+- xarray
+- netcdf4
