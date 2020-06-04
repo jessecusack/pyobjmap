@@ -32,11 +32,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pyobjmap import objmap
 
+
+def nearestidx(value, arr):
+    return np.argmin(np.abs(arr - value))
+
+
 # %% [markdown]
 # We don't care about sea ice variables or bottom temperature so drop them.
 
 # %%
 ds = xr.open_dataset("../data/mercatorglorys12v1_gl12_mean_20150617_R20150624.nc", drop_variables=["usi", "vsi", "sithick", "siconc", "bottomT"])
+
+# %% [markdown]
+# ## Investigate the dataset
 
 # %%
 ds
@@ -54,9 +62,6 @@ east = 80
 south = -50
 north = -30
 idepth = 0
-
-def nearestidx(value, arr):
-    return np.argmin(np.abs(arr - value))
 
 iwest = nearestidx(west, ds.longitude.values)
 ieast = nearestidx(east, ds.longitude.values)
@@ -152,7 +157,7 @@ plt.colorbar(CP)
 # As expected for daily mean, 1/12th degree ($~\sim 10$ km) model output, the Rossby number is very small. As such, we would expect the velocity to be in geostrophic balance to a good approximation and not horizontally divergent. 
 
 # %% [markdown]
-# ## Now lets try running the objective mapping...
+# ## Objective mapping with an isotropic covariance function
 #
 # First we subsample the region, to simulate 'real' observations which are sparse in space. To be even more realistic we might subsample in time too, but that would require downloading a lot more data. 
 
@@ -236,7 +241,7 @@ ax.scatter(lond, latd, s=2)
 plt.colorbar(C)
 
 # %% [markdown]
-# Is isotropy breaking down?
+# ## Anisotropic covariance function
 
 # %%
 # bins = [np.linspace(-3e6, 3e6, 31), np.linspace(-1.5e6, 1.5e6, 21)]
@@ -249,7 +254,8 @@ ymid = 0.5*(ybins[1:] + ybins[:-1])
 
 # %%
 clev = np.linspace(0, 40, 11)
-l = 500000
+lx = 1200e3
+ly = 250e3
 
 xmidg, ymidg = np.meshgrid(xmid, ymid)
 
@@ -260,69 +266,16 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1)
 ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, objmap.gauss2d(xmidg, ymidg, a, 6*l, l, 2), clev, extend='both')
+CC = ax.contourf(xmidg, ymidg, objmap.gauss2d(xmidg, ymidg, a, lx, ly, 2), clev, extend='both')
 plt.colorbar(CC)
 
 # %%
-import scipy.spatial as spat
-
-def objmap2(xd, yd, zd, xm, ym, a, lx, ly, theta=0):
-    """Needs docstring."""
-
-    # Use the covariance function specified.
-    cfunc = objmap.gauss2d
-
-    ztrend = zd.mean()
-
-    zdetrend = zd - ztrend
-
-    # Data - data covariance matrix.
-    C = np.outer(zdetrend, zdetrend)
-
-    # Construct data - data distance matrix in coordinate system where
-    # zero is at the centre of the data.
-    # TODO: is it really necessary to move coordinates to origin? Probably not...
-    xdmid = np.mean(xd)
-    ydmid = np.mean(yd)
-    xd = xd - xdmid
-    yd = yd - ydmid
-
-    xdist = xd[:, np.newaxis] - xd[np.newaxis, :]
-    ydist = yd[:, np.newaxis] - yd[np.newaxis, :]
-
-    # Data - data covarance matrix using the function.
-    Cdd0 = cfunc(xdist, ydist, 1, lx, ly, theta)
-    # Add variance back in.
-    lam = (C.diagonal().mean() - a)/a
-    Cdd = Cdd0 + np.eye(*Cdd0.shape)*lam
-
-    # Construct model - data distance matrix.
-    xm = xm - xdmid
-    ym = ym - ydmid
-    xmddist = xm.ravel()[:, np.newaxis] - xd.ravel()[np.newaxis, :]
-    ymddist = ym.ravel()[:, np.newaxis] - yd.ravel()[np.newaxis, :]
-
-    # Construct the model - data covariance matrix.
-    Cmd = cfunc(xmddist, ymddist, 1, lx, ly, theta)
-
-    # Do the objective mapping.
-    A, _, _, _ = np.linalg.lstsq(Cdd, zdetrend, rcond=None)
-
-    print(A.shape)
-    print(Cmd.shape)
-
-    zmg = (Cmd @ A).reshape(xm.shape)
-
-    zmg += ztrend
-
-    return zmg
-
-
-# %%
-l = 500e3
+lx = 1200e3
+ly = 250e3
 theta = 2
+SNR = 4
 
-tg = objmap2(xd, yd, t, xmg, ymg, a, l, 6*l, theta)
+tg = objmap.objmap2(xd, yd, t, xmg, ymg, SNR, lx, ly, theta)
 
 # %%
 clevs = np.linspace(4, 24, 11)
@@ -336,3 +289,275 @@ fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend='both')
 ax.scatter(lond, latd, s=2)
 plt.colorbar(C)
+
+
+# %% [markdown]
+# ## Mapping velocity to a stream function
+#
+# Define all the various functions (Wilkins 2002)
+
+# %%
+def C(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*np.exp(-0.5*r**2/l**2)
+
+def R(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*np.exp(-0.5*r**2/l**2)/l**2
+
+def S(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*(l**2 - r**2)*np.exp(-0.5*r**2/l**2)/l**4
+
+def Cuu(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*(l**2 - r**2 + x**2)*np.exp(-0.5*r**2/l**2)/l**4
+
+def Cvv(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*(l**2 - r**2 + y**2)*np.exp(-0.5*r**2/l**2)/l**4
+
+def Cuv(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*x*y*np.exp(-0.5*r**2/l**2)/l**4
+
+def Cpsiu(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*y*np.exp(-0.5*r**2/l**2)/l**2
+
+def Cpsiv(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return -A*x*np.exp(-0.5*r**2/l**2)/l**2
+
+
+# %% [markdown]
+# Make a micro box for velocity...
+
+# %%
+west = 50
+east = 60
+south = -50
+north = -35
+idepth = 0
+
+iwest = nearestidx(west, ds.longitude.values)
+ieast = nearestidx(east, ds.longitude.values)
+isouth = nearestidx(south , ds.latitude.values)
+inorth = nearestidx(north , ds.latitude.values)
+ilon = np.arange(iwest, ieast, dtype=int)
+ilat = np.arange(isouth, inorth, dtype=int)
+
+dmbox = ds.isel(longitude=ilon, latitude=ilat, depth=idepth, time=0)
+
+step = 3  # reduce for plotting
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect('equal')
+ax.quiver(dmbox.longitude[::step], dmbox.latitude[::step], dmbox.uo[::step, ::step], dmbox.vo[::step, ::step])
+
+# %%
+np.random.seed(82615811)
+frac = 0.02  # Fraction of data to sample, in this case 5 %.
+
+# Grid the longitude and latitude data.
+londg, latdg = np.meshgrid(dmbox.longitude.values, dmbox.latitude.values)
+
+notnan = np.isfinite(dmbox.thetao.values.ravel())
+
+u_ = dmbox.uo.values.ravel()[notnan]
+v_ = dmbox.vo.values.ravel()[notnan]
+lons_ = londg.ravel()[notnan]
+lats_ = latdg.ravel()[notnan]
+
+n = int(frac*u_.size)  # number of samples.
+
+# Choose samples without replacement.
+sidx = np.random.choice(u_.size, size=(n), replace=False)
+lond = lons_[sidx]
+latd = lats_[sidx]
+u = u_[sidx]
+v = v_[sidx]
+
+# Roughly convert data to x - y coordinates on sphere, with origin at mid of data.
+rearth = 6370800 # metres
+lonmid = 0.5*(dmbox.longitude[0] + dmbox.longitude[-1]).values
+latmid = 0.5*(dmbox.latitude[0] + dmbox.latitude[-1]).values
+xd = rearth*(np.deg2rad(lond - lonmid))*np.cos(np.deg2rad(latd))
+yd = rearth*np.deg2rad(latd - latmid)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect('equal')
+ax.quiver(xd, yd, u, v)
+
+# %% [markdown]
+# Lets investigate the covariance.
+
+# %%
+l = 100e3
+A = 5e8
+
+# %%
+bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
+
+xbins, ybins, Cxy = objmap.bincovxyuv(xd, yd, u, v, bins=bins)
+xmid = 0.5*(xbins[1:] + xbins[:-1])
+ymid = 0.5*(ybins[1:] + ybins[:-1])
+
+clev = np.linspace(-0.015, 0.015, 11)
+
+xmidg, ymidg = np.meshgrid(xmid, ymid)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# ax.set_aspect('equal')
+CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend='both')
+plt.colorbar(CC)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# ax.set_aspect('equal')
+CC = ax.contourf(xmidg, ymidg, Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+plt.colorbar(CC)
+
+# %%
+bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
+
+xbins, ybins, Cxy = objmap.bincovxyuv(xd, yd, u, u, bins=bins)
+xmid = 0.5*(xbins[1:] + xbins[:-1])
+ymid = 0.5*(ybins[1:] + ybins[:-1])
+
+clev = np.linspace(-0.015, 0.015, 11)
+
+xmidg, ymidg = np.meshgrid(xmid, ymid)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# ax.set_aspect('equal')
+CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend='both')
+plt.colorbar(CC)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# ax.set_aspect('equal')
+CC = ax.contourf(xmidg, ymidg, Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+plt.colorbar(CC)
+
+# %%
+bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
+
+xbins, ybins, Cxy = objmap.bincovxyuv(xd, yd, v, v, bins=bins)
+xmid = 0.5*(xbins[1:] + xbins[:-1])
+ymid = 0.5*(ybins[1:] + ybins[:-1])
+
+clev = np.linspace(-0.015, 0.015, 11)
+
+xmidg, ymidg = np.meshgrid(xmid, ymid)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# ax.set_aspect('equal')
+CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend='both')
+plt.colorbar(CC)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# ax.set_aspect('equal')
+CC = ax.contourf(xmidg, ymidg, Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+plt.colorbar(CC)
+
+# %% [markdown]
+# Construct the matrices for the optimal interpolation.
+#
+# \begin{equation}
+# \psi^\text{est}(x) = \mathbf{C} \mathbf{A}^{-1} \phi^\text{obs}
+# \end{equation}
+#
+# \begin{equation}
+# \mathbf{A} = 
+#   \begin{bmatrix}
+#   \mathbf{C}_{uu} + \sigma_u \mathbf{I} & \mathbf{C}_{uv} \\
+#   \mathbf{C}_{uv} & \mathbf{C}_{vv} + \sigma_u \mathbf{I}
+#   \end{bmatrix}
+# \end{equation}
+#
+# \begin{equation}
+# \mathbf{C} = 
+#   \begin{bmatrix}
+#   \mathbf{C}_{\psi u} & \mathbf{C}_{\psi v}
+#   \end{bmatrix}
+# \end{equation}
+#
+# \begin{equation}
+# \phi^\text{obs} =
+#   \begin{bmatrix}
+#   \mathbf{u} \\ 
+#   \mathbf{v}
+#   \end{bmatrix}
+# \end{equation}
+#
+# <!-- \begin{gather}
+#  \begin{bmatrix} \Phi_{11} & \Phi_{12} \\ \Phi_{21} & \Phi_{22} \end{bmatrix}
+#  =
+#  \frac{1}{\det(X)}
+#   \begin{bmatrix}
+#    X_{22} Y_{11} - X_{12} Y_{21} &
+#    X_{22} Y_{12} - X_{12} Y_{22} \\
+#    X_{11} Y_{21} - X_{21} Y_{11} &
+#    X_{11} Y_{22} - X_{21} Y_{12} 
+#    \end{bmatrix}
+# \end{gather} -->
+#
+
+# %%
+SNR = np.inf
+l = 100e3
+# A = 5e8
+
+ud = u - u.mean()
+vd = v - v.mean()
+
+phi_obs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
+
+# Data data distances
+xdmid = np.mean(xd)
+ydmid = np.mean(yd)
+x_ = xd - xdmid
+y_ = yd - ydmid
+
+xdist = x_[:, np.newaxis] - x_[np.newaxis, :]
+ydist = y_[:, np.newaxis] - y_[np.newaxis, :]
+
+# Data - data covarance matrix
+Muu = Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
+Mvv = Cvv(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
+Muv = Cuv(xdist, ydist, 1, l)
+
+M = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))
+
+
+# %%
+nlon = 25
+nlat = 50
+
+lonm = np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
+latm = np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
+
+lonmg, latmg = np.meshgrid(lonm, latm)
+ymg = rearth*np.deg2rad(latmg - latmid)
+xmg = rearth*(np.deg2rad(lonmg - lonmid))*np.cos(np.deg2rad(latmg))
+
+# %%
+xm = xmg.ravel() - xdmid
+ym = ymg.ravel() - ydmid
+xmddist = xm[:, np.newaxis] - xd[np.newaxis, :]
+ymddist = ym[:, np.newaxis] - yd[np.newaxis, :]
+
+Mpsiu = Cpsiu(xmddist, ymddist, 1, l)
+Mpsiv = Cpsiv(xmddist, ymddist, 1, l)
+
+Cmd = np.hstack((Mpsiu, Mpsiv))
+
+# %%
+A, _, _, _ = np.linalg.lstsq(M, phi_obs, rcond=None)
+
+# %%
+psi = (Cmd @ A).reshape(xmg.shape)
+
+# %%
+fig, ax = plt.subplots(1, 1)
+ax.contour(lonmg, latmg, psi)
+
+# %%
