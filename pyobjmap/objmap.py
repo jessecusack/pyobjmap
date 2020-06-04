@@ -110,6 +110,26 @@ def bincovxyabs(x, y, z, bins=10):
     return xbins, ybins, Cxy.T
 
 
+def bincovxyuv(x, y, u, v, bins=10):
+
+    # x distance matrix
+    xdist = x[:, np.newaxis] - x[np.newaxis, :]
+    # y distance matrix
+    ydist = y[:, np.newaxis] - y[np.newaxis, :]
+
+    # remove mean before calculating covariance
+    udetrend = u - u.mean()
+    vdetrend = v - v.mean()
+
+    # Covariance matrix
+    C = np.outer(udetrend, vdetrend)
+    itri, jtri = np.triu_indices_from(C)
+
+    Cxy, xbins, ybins, _ = stats.binned_statistic_2d(xdist[itri, jtri], ydist[itri, jtri], C[itri, jtri], statistic='mean', bins=bins)
+
+    return xbins, ybins, Cxy.T
+
+
 def covfit(x, y, z, bins=10, cfunc='gauss', p0=[1, 1], rfitmax=None):
 
     cfunc = funccheck(cfunc)
@@ -127,7 +147,7 @@ def covfit(x, y, z, bins=10, cfunc='gauss', p0=[1, 1], rfitmax=None):
     return popt
 
 
-def objmap(xd, yd, zd, xm, ym, a, l, cfunc='gauss', detrend='mean'):
+def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
     """Needs docstring."""
 
     # Use the covariance function specified.
@@ -160,8 +180,7 @@ def objmap(xd, yd, zd, xm, ym, a, l, cfunc='gauss', detrend='mean'):
     # Data - data covarance matrix using the function.
     Cdd0 = cfunc(Rdd, 1, l)
     # Add variance back in.
-    lam = (C.diagonal().mean() - a)/a
-    Cdd = Cdd0 + np.eye(*Cdd0.shape)*lam
+    Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
 
     # Construct model - data distance matrix.
     xym = np.stack((xm.ravel() - xdmid, ym.ravel() - ydmid), 1)
@@ -192,3 +211,51 @@ def plane_coeff(x, y, z):
     A = np.c_[x.ravel(), y.ravel(), np.ones(z.ravel().size)]
     C, _, _, _ = np.linalg.lstsq(A, z.ravel(), rcond=None)  # coefficients
     return C
+
+
+def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
+    """Needs docstring."""
+
+    # Use the covariance function specified.
+    cfunc = gauss2d
+
+    ztrend = zd.mean()
+
+    zdetrend = zd - ztrend
+
+    # Data - data covariance matrix.
+    C = np.outer(zdetrend, zdetrend)
+
+    # Construct data - data distance matrix in coordinate system where
+    # zero is at the centre of the data.
+    # TODO: is it really necessary to move coordinates to origin? Probably not...
+    xdmid = np.mean(xd)
+    ydmid = np.mean(yd)
+    xd = xd - xdmid
+    yd = yd - ydmid
+
+    xdist = xd[:, np.newaxis] - xd[np.newaxis, :]
+    ydist = yd[:, np.newaxis] - yd[np.newaxis, :]
+
+    # Data - data covarance matrix using the function.
+    Cdd0 = cfunc(xdist, ydist, 1, lx, ly, theta)
+    # Add variance back in.
+    Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
+
+    # Construct model - data distance matrix.
+    xm = xm - xdmid
+    ym = ym - ydmid
+    xmddist = xm.ravel()[:, np.newaxis] - xd.ravel()[np.newaxis, :]
+    ymddist = ym.ravel()[:, np.newaxis] - yd.ravel()[np.newaxis, :]
+
+    # Construct the model - data covariance matrix.
+    Cmd = cfunc(xmddist, ymddist, 1, lx, ly, theta)
+
+    # Do the objective mapping.
+    A, _, _, _ = np.linalg.lstsq(Cdd, zdetrend, rcond=None)
+
+    zmg = (Cmd @ A).reshape(xm.shape)
+
+    zmg += ztrend
+
+    return zmg
