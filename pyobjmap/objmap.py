@@ -259,3 +259,85 @@ def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
     zmg += ztrend
 
     return zmg
+
+
+def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
+    """Map velocity observations to non-divergent streamfunction"""
+    input_shape = xm.shape
+
+    ud = ud - ud.mean()
+    vd = vd - vd.mean()
+
+    phi_obs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
+
+    # Data data distances
+    # TODO: I don't think subtracting the mean is strictly necessary if we're
+    # always working with distance differences...
+    xdmid = np.mean(xd)
+    ydmid = np.mean(yd)
+    xd = xd - xdmid
+    yd = yd - ydmid
+
+    xdist = xd[:, np.newaxis] - xd[np.newaxis, :]
+    ydist = yd[:, np.newaxis] - yd[np.newaxis, :]
+
+    # Data - data covarance matrix
+    Muu = Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
+    Mvv = Cvv(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
+    Muv = Cuv(xdist, ydist, 1, l)
+
+    Cdd = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))
+
+    xm = xm.ravel() - xdmid
+    ym = ym.ravel() - ydmid
+    xmddist = xm[:, np.newaxis] - xd[np.newaxis, :]
+    ymddist = ym[:, np.newaxis] - yd[np.newaxis, :]
+
+    Mpsiu = Cpsiu(xmddist, ymddist, 1, l)
+    Mpsiv = Cpsiv(xmddist, ymddist, 1, l)
+
+    Cmd = np.hstack((Mpsiu, Mpsiv))
+
+    A, _, _, _ = np.linalg.lstsq(Cdd, phi_obs, rcond=None)
+
+    psi = Cmd @ A
+
+    return psi.reshape(input_shape)
+
+# Gaussian covariance functions for velocity and streamfunction
+def Cuu(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*(l**2 - r**2 + x**2)*np.exp(-0.5*r**2/l**2)/l**4
+
+
+def Cvv(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*(l**2 - r**2 + y**2)*np.exp(-0.5*r**2/l**2)/l**4
+
+
+def Cuv(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*x*y*np.exp(-0.5*r**2/l**2)/l**4
+
+
+def Cpsiu(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return A*y*np.exp(-0.5*r**2/l**2)/l**2
+
+
+def Cpsiv(x, y, A, l):
+    r = np.sqrt(x**2 + y**2)
+    return -A*x*np.exp(-0.5*r**2/l**2)/l**2
+
+
+# def C(x, y, A, l):
+#     r = np.sqrt(x**2 + y**2)
+#     return A*np.exp(-0.5*r**2/l**2)
+
+# def R(x, y, A, l):
+#     r = np.sqrt(x**2 + y**2)
+#     return A*np.exp(-0.5*r**2/l**2)/l**2
+
+# def S(x, y, A, l):
+#     r = np.sqrt(x**2 + y**2)
+#     return A*(l**2 - r**2)*np.exp(-0.5*r**2/l**2)/l**4

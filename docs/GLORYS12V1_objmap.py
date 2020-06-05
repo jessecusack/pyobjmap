@@ -31,6 +31,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import numpy as np
 from pyobjmap import objmap
+import scipy.interpolate as itpl
 
 
 def nearestidx(value, arr):
@@ -290,47 +291,9 @@ C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend='bo
 ax.scatter(lond, latd, s=2)
 plt.colorbar(C)
 
-
 # %% [markdown]
 # ## Mapping velocity to a stream function
 #
-# Define all the various functions (Wilkins 2002)
-
-# %%
-def C(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*np.exp(-0.5*r**2/l**2)
-
-def R(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*np.exp(-0.5*r**2/l**2)/l**2
-
-def S(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*(l**2 - r**2)*np.exp(-0.5*r**2/l**2)/l**4
-
-def Cuu(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*(l**2 - r**2 + x**2)*np.exp(-0.5*r**2/l**2)/l**4
-
-def Cvv(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*(l**2 - r**2 + y**2)*np.exp(-0.5*r**2/l**2)/l**4
-
-def Cuv(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*x*y*np.exp(-0.5*r**2/l**2)/l**4
-
-def Cpsiu(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return A*y*np.exp(-0.5*r**2/l**2)/l**2
-
-def Cpsiv(x, y, A, l):
-    r = np.sqrt(x**2 + y**2)
-    return -A*x*np.exp(-0.5*r**2/l**2)/l**2
-
-
-# %% [markdown]
 # Make a micro box for velocity...
 
 # %%
@@ -356,7 +319,7 @@ ax.quiver(dmbox.longitude[::step], dmbox.latitude[::step], dmbox.uo[::step, ::st
 
 # %%
 np.random.seed(82615811)
-frac = 0.02  # Fraction of data to sample, in this case 5 %.
+frac = 0.04  # Fraction of data to sample, in this case 4 %.
 
 # Grid the longitude and latitude data.
 londg, latdg = np.meshgrid(dmbox.longitude.values, dmbox.latitude.values)
@@ -413,7 +376,7 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmidg, ymidg, objmap.Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
 plt.colorbar(CC)
 
 # %%
@@ -434,7 +397,7 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmidg, ymidg, objmap.Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
 plt.colorbar(CC)
 
 # %%
@@ -455,7 +418,7 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmidg, ymidg, objmap.Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
 plt.colorbar(CC)
 
 # %% [markdown]
@@ -503,34 +466,10 @@ plt.colorbar(CC)
 
 # %%
 SNR = np.inf
-l = 100e3
-# A = 5e8
-
-ud = u - u.mean()
-vd = v - v.mean()
-
-phi_obs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
-
-# Data data distances
-xdmid = np.mean(xd)
-ydmid = np.mean(yd)
-x_ = xd - xdmid
-y_ = yd - ydmid
-
-xdist = x_[:, np.newaxis] - x_[np.newaxis, :]
-ydist = y_[:, np.newaxis] - y_[np.newaxis, :]
-
-# Data - data covarance matrix
-Muu = Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
-Mvv = Cvv(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
-Muv = Cuv(xdist, ydist, 1, l)
-
-M = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))
-
-
-# %%
-nlon = 25
-nlat = 50
+l = 200e3
+A = 5e8
+nlon = 50
+nlat = 100
 
 lonm = np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
 latm = np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
@@ -539,25 +478,53 @@ lonmg, latmg = np.meshgrid(lonm, latm)
 ymg = rearth*np.deg2rad(latmg - latmid)
 xmg = rearth*(np.deg2rad(lonmg - lonmid))*np.cos(np.deg2rad(latmg))
 
-# %%
-xm = xmg.ravel() - xdmid
-ym = ymg.ravel() - ydmid
-xmddist = xm[:, np.newaxis] - xd[np.newaxis, :]
-ymddist = ym[:, np.newaxis] - yd[np.newaxis, :]
+psi = objmap.objmap_streamfunc(xd, yd, u, v, xmg, ymg, l, SNR)
 
-Mpsiu = Cpsiu(xmddist, ymddist, 1, l)
-Mpsiv = Cpsiv(xmddist, ymddist, 1, l)
-
-Cmd = np.hstack((Mpsiu, Mpsiv))
+# %% [markdown]
+# Lets look at the mapped field.
 
 # %%
-A, _, _, _ = np.linalg.lstsq(M, phi_obs, rcond=None)
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect('equal')
+ax.contour(lonmg, latmg, psi, 10, colors='k')
+ax.quiver(lond, latd, u, v)
 
 # %%
-psi = (Cmd @ A).reshape(xmg.shape)
+vm, um = spherical_polar_gradient(psi, lonm, latm)
+vm *= -1
+
+fum = itpl.RectBivariateSpline(latm, lonm, um)
+fvm = itpl.RectBivariateSpline(latm, lonm, vm)
+
+umd = fum(latd, lond, grid=False)
+vmd = fvm(latd, lond, grid=False)
+
+dumdx, dumdy = spherical_polar_gradient(um, lonm, latm)
+dvmdx, dvmdy = spherical_polar_gradient(vm, lonm, latm)
+
+divm = dumdx + dvmdy
+vortm = dvmdx - dumdy
 
 # %%
-fig, ax = plt.subplots(1, 1)
-ax.contour(lonmg, latmg, psi)
+step = 3
+scale = 30
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect('equal')
+ax.quiver(lonmg[::step, ::step], latmg[::step, ::step], um[::step, ::step], vm[::step, ::step], color='r', scale=scale)
+ax.quiver(lond, latd, u, v, scale=scale)
+
+# %% [markdown]
+# Divergence.
+
+# %%
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect('equal')
+CF = ax.contourf(lonmg, latmg, divm, cmap='coolwarm')
+plt.colorbar(CF)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect('equal')
+CF = ax.contourf(lonmg, latmg, vortm, cmap='coolwarm')
+plt.colorbar(CF)
 
 # %%

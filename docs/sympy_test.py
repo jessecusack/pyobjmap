@@ -68,12 +68,18 @@ print(NumPyPrinter().doprint(Cpsiv))
 
 # %%
 Cr_letra = sym.simplify(A*(1 + r/l + (r/l)**2/6 - (r/l)**3/6)*sym.exp(-r/l))
-print(Cr_letra)
+print(NumPyPrinter().doprint(Cr_letra))
 
 # %%
 R_letra = sym.simplify((-1/r)*sym.diff(Cr_letra, r))
-print(R_letra)
+print(NumPyPrinter().doprint(R_letra))
 
 # %%
 S_letra = sym.simplify(-sym.diff(Cr_letra, r, 2))
-print(S_letra)
+print(NumPyPrinter().doprint(S_letra))
+
+# %%
+Cuu = sym.simplify((x**2/r**2)*(R_letra - S_letra) + S_letra)
+print(NumPyPrinter().doprint(Cuu))
+
+# %%
