@@ -31,6 +31,8 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import numpy as np
 from pyobjmap import objmap
+from pyobjmap import covariance as cov
+from pyobjmap import utils
 import scipy.interpolate as itpl
 
 
@@ -89,32 +91,14 @@ ax.quiver(dsbox.longitude[::step], dsbox.latitude[::step], dsbox.uo[::step, ::st
 # %%
 dsbox.to_netcdf("../data/small_glorys_region.nc")
 
-
 # %% [markdown]
 # Now lets estimate some useful quantities such as the vorticity and divergence. We'll need to apply the vector operators in spherical co-orrdinates since the data are on a lon - lat grid. 
-
-# %%
-def spherical_polar_gradient(f, lon, lat, r=6371000.0):
-    nr, nc = f.shape
-    if (nr != len(lat)) or (nc != len(lon)):
-        raise ValueError(
-            "Latitude and longitude are expected to be rows and" "columns respectively"
-        )
-
-    _, latg = np.meshgrid(np.deg2rad(lon), np.deg2rad(lat))
-
-    # Cosine because latitude from -90 to 90. Not 0 to pi.
-    dfdlat = np.gradient(f, lat, axis=0) / r
-    dfdlon = np.gradient(f, lon, axis=1) / (r * np.cos(latg))
-
-    return dfdlon, dfdlat
-
 
 # %% [markdown]
 # Gradients in sea surface height.
 
 # %%
-dhdlon, dhdlat = spherical_polar_gradient(dsbox.zos, dsbox.longitude, dsbox.latitude)
+dhdlon, dhdlat = utils.spherical_polar_gradient(dsbox.zos, dsbox.longitude, dsbox.latitude)
 
 # %%
 fig, axs = plt.subplots(1, 2, sharey=True, figsize=(9, 4))
@@ -127,8 +111,8 @@ axs[1].set_title('dhdlat')
 # Gradients in velocity.
 
 # %%
-dudlon, dudlat = spherical_polar_gradient(dsbox.uo, dsbox.longitude, dsbox.latitude)
-dvdlon, dvdlat = spherical_polar_gradient(dsbox.vo, dsbox.longitude, dsbox.latitude)
+dudlon, dudlat = utils.spherical_polar_gradient(dsbox.uo, dsbox.longitude, dsbox.latitude)
+dvdlon, dvdlat = utils.spherical_polar_gradient(dsbox.vo, dsbox.longitude, dsbox.latitude)
 div = dudlon + dvdlat
 vort = dvdlon - dudlat
 
@@ -200,15 +184,15 @@ plt.colorbar(CS)
 # %%
 bins = 30 #np.linspace(0, 2e6, 10)
 
-rbins, Cr = objmap.bincovr(xd, yd, t, bins=bins)
+rbins, Cr = cov.bincovr(xd, yd, t, bins=bins)
 rmid = 0.5*(rbins[1:] + rbins[:-1])
 
-popt = objmap.covfit(xd, yd, t, bins=bins, cfunc='gauss', p0=[30, 5e5], rfitmax=3e6)
+popt = cov.covfit(xd, yd, t, bins=bins, cfunc='gauss', p0=[30, 5e5], rfitmax=3e6)
 a, l = popt
 
 fig, ax = plt.subplots(1, 1)
 ax.plot(rmid, Cr, 'x')
-ax.plot(rmid, objmap.gauss(rmid, a, l))
+ax.plot(rmid, cov.gauss(rmid, a, l))
 ax.set_title('l = {:1.0f} km'.format(l/1000))
 
 # %% [markdown]
@@ -249,7 +233,7 @@ plt.colorbar(C)
 bins = [np.linspace(0, 3e6, 31), np.linspace(0, 1.5e6, 21)]
 
 # xbins, ybins, Cxy = objmap.bincovxy(xd, yd, t, bins=bins)
-xbins, ybins, Cxy = objmap.bincovxyabs(xd, yd, t, bins=bins)
+xbins, ybins, Cxy = cov.bincovxyabs(xd, yd, t, bins=bins)
 xmid = 0.5*(xbins[1:] + xbins[:-1])
 ymid = 0.5*(ybins[1:] + ybins[:-1])
 
@@ -267,7 +251,7 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1)
 ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, objmap.gauss2d(xmidg, ymidg, a, lx, ly, 2), clev, extend='both')
+CC = ax.contourf(xmidg, ymidg, cov.gauss2d(xmidg, ymidg, a, lx, ly, 2), clev, extend='both')
 plt.colorbar(CC)
 
 # %%
@@ -361,7 +345,7 @@ A = 5e8
 # %%
 bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
 
-xbins, ybins, Cxy = objmap.bincovxyuv(xd, yd, u, v, bins=bins)
+xbins, ybins, Cxy = cov.bincovxyuv(xd, yd, u, v, bins=bins)
 xmid = 0.5*(xbins[1:] + xbins[:-1])
 ymid = 0.5*(ybins[1:] + ybins[:-1])
 
@@ -376,13 +360,13 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, objmap.Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmidg, ymidg, cov.Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
 plt.colorbar(CC)
 
 # %%
 bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
 
-xbins, ybins, Cxy = objmap.bincovxyuv(xd, yd, u, u, bins=bins)
+xbins, ybins, Cxy = cov.bincovxyuv(xd, yd, u, u, bins=bins)
 xmid = 0.5*(xbins[1:] + xbins[:-1])
 ymid = 0.5*(ybins[1:] + ybins[:-1])
 
@@ -397,13 +381,13 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, objmap.Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmidg, ymidg, cov.Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
 plt.colorbar(CC)
 
 # %%
 bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
 
-xbins, ybins, Cxy = objmap.bincovxyuv(xd, yd, v, v, bins=bins)
+xbins, ybins, Cxy = cov.bincovxyuv(xd, yd, v, v, bins=bins)
 xmid = 0.5*(xbins[1:] + xbins[:-1])
 ymid = 0.5*(ybins[1:] + ybins[:-1])
 
@@ -418,7 +402,7 @@ plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, objmap.Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmidg, ymidg, cov.Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
 plt.colorbar(CC)
 
 # %% [markdown]
@@ -490,7 +474,7 @@ ax.contour(lonmg, latmg, psi, 10, colors='k')
 ax.quiver(lond, latd, u, v)
 
 # %%
-vm, um = spherical_polar_gradient(psi, lonm, latm)
+vm, um = utils.spherical_polar_gradient(psi, lonm, latm)
 vm *= -1
 
 fum = itpl.RectBivariateSpline(latm, lonm, um)
@@ -499,8 +483,8 @@ fvm = itpl.RectBivariateSpline(latm, lonm, vm)
 umd = fum(latd, lond, grid=False)
 vmd = fvm(latd, lond, grid=False)
 
-dumdx, dumdy = spherical_polar_gradient(um, lonm, latm)
-dvmdx, dvmdy = spherical_polar_gradient(vm, lonm, latm)
+dumdx, dumdy = utils.spherical_polar_gradient(um, lonm, latm)
+dvmdx, dvmdy = utils.spherical_polar_gradient(vm, lonm, latm)
 
 divm = dumdx + dvmdy
 vortm = dvmdx - dumdy
@@ -517,14 +501,16 @@ ax.quiver(lond, latd, u, v, scale=scale)
 # Divergence.
 
 # %%
+c = 1e-8
+
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
 ax.set_aspect('equal')
-CF = ax.contourf(lonmg, latmg, divm, cmap='coolwarm')
+CF = ax.contourf(lonmg, latmg, divm, np.linspace(-c, c, 11), cmap='coolwarm', extend='both')
 plt.colorbar(CF)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
 ax.set_aspect('equal')
-CF = ax.contourf(lonmg, latmg, vortm, cmap='coolwarm')
+CF = ax.contourf(lonmg, latmg, vortm, np.linspace(-c, c, 11), cmap='coolwarm', extend='both')
 plt.colorbar(CF)
 
 # %%
