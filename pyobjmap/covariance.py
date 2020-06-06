@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats as stats
 import scipy.optimize as opt
-import scipy.spatial as spat
+from . import matrix as mat
 
 
 # class Gauss(object):
@@ -11,7 +11,6 @@ import scipy.spatial as spat
 #     def Cr(self, r)
 #         return self.A*np.exp(-0.5*(r/self.l)**2)
 #     def
-
 
 
 def gauss(r, A, l):
@@ -68,8 +67,7 @@ def bincovr(x, y, z, bins=10, origin='mean'):
         raise ValueError('Origin can be mean only for now.')
 
     # Construct distance matrix.
-    xy = np.stack((x, y), 1)
-    R = spat.distance.cdist(xy, xy)
+    R = mat.r_distance(x, y)
     itri, jtri = np.triu_indices_from(R)
 
     # remove mean before calculating covariance
@@ -85,10 +83,7 @@ def bincovr(x, y, z, bins=10, origin='mean'):
 
 def bincovxy(x, y, z, bins=10):
 
-    # x distance matrix
-    xdist = x[:, np.newaxis] - x[np.newaxis, :]
-    # y distance matrix
-    ydist = y[:, np.newaxis] - y[np.newaxis, :]
+    xdist, ydist = mat.xy_distance(x, y)
 
     # remove mean before calculating covariance
     zdetrend = z - z.mean()
@@ -104,10 +99,7 @@ def bincovxy(x, y, z, bins=10):
 
 def bincovxyabs(x, y, z, bins=10):
 
-    # x distance matrix
-    xdist = np.abs(x[:, np.newaxis] - x[np.newaxis, :])
-    # y distance matrix
-    ydist = np.abs(y[:, np.newaxis] - y[np.newaxis, :])
+    xdist, ydist = mat.xy_distance(x, y)
 
     # remove mean before calculating covariance
     zdetrend = z - z.mean()
@@ -123,10 +115,7 @@ def bincovxyabs(x, y, z, bins=10):
 
 def bincovxyuv(x, y, u, v, bins=10):
 
-    # x distance matrix
-    xdist = x[:, np.newaxis] - x[np.newaxis, :]
-    # y distance matrix
-    ydist = y[:, np.newaxis] - y[np.newaxis, :]
+    xdist, ydist = mat.xy_distance(x, y)
 
     # remove mean before calculating covariance
     udetrend = u - u.mean()

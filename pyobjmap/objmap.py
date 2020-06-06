@@ -1,6 +1,6 @@
 import numpy as np
-import scipy.spatial as spat
 from . import covariance as cov
+from . import matrix as mat
 
 
 def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
@@ -27,11 +27,7 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
 
     # Construct data - data distance matrix in coordinate system where
     # zero is at the centre of the data.
-    # TODO: is it really necessary to move coordinates to origin? Probably not...
-    xdmid = np.mean(xd)
-    ydmid = np.mean(yd)
-    xyd = np.stack((xd - xdmid, yd - ydmid), 1)
-    Rdd = spat.distance.cdist(xyd, xyd)
+    Rdd = mat.r_distance(xd, yd)
 
     # Data - data covarance matrix using the function.
     Cdd0 = cfunc(Rdd, 1, l)
@@ -39,8 +35,7 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
     Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
 
     # Construct model - data distance matrix.
-    xym = np.stack((xm.ravel() - xdmid, ym.ravel() - ydmid), 1)
-    Rmd = spat.distance.cdist(xym, xyd)
+    Rmd = mat.r_distance(xm, ym, xd, yd)
 
     # Construct the model - data covariance matrix.
     Cmd = cfunc(Rmd, 1, l)
@@ -74,14 +69,7 @@ def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
 
     # Construct data - data distance matrix in coordinate system where
     # zero is at the centre of the data.
-    # TODO: is it really necessary to move coordinates to origin? Probably not...
-    xdmid = np.mean(xd)
-    ydmid = np.mean(yd)
-    xd = xd - xdmid
-    yd = yd - ydmid
-
-    xdist = xd[:, np.newaxis] - xd[np.newaxis, :]
-    ydist = yd[:, np.newaxis] - yd[np.newaxis, :]
+    xdist, ydist = mat.xy_distance(xd, yd)
 
     # Data - data covarance matrix using the function.
     Cdd0 = cfunc(xdist, ydist, 1, lx, ly, theta)
@@ -89,10 +77,7 @@ def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
     Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
 
     # Construct model - data distance matrix.
-    xm = xm - xdmid
-    ym = ym - ydmid
-    xmddist = xm.ravel()[:, np.newaxis] - xd.ravel()[np.newaxis, :]
-    ymddist = ym.ravel()[:, np.newaxis] - yd.ravel()[np.newaxis, :]
+    xmddist, ymddist = mat.xy_distance(xm, ym, xd, yd)
 
     # Construct the model - data covariance matrix.
     Cmd = cfunc(xmddist, ymddist, 1, lx, ly, theta)
@@ -114,18 +99,10 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
     ud = ud - ud.mean()
     vd = vd - vd.mean()
 
-    phi_obs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
+    uvobs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
 
     # Data data distances
-    # TODO: I don't think subtracting the mean is strictly necessary if we're
-    # always working with distance differences...
-    xdmid = np.mean(xd)
-    ydmid = np.mean(yd)
-    xd = xd - xdmid
-    yd = yd - ydmid
-
-    xdist = xd[:, np.newaxis] - xd[np.newaxis, :]
-    ydist = yd[:, np.newaxis] - yd[np.newaxis, :]
+    xdist, ydist = mat.xy_distance(xd, yd)
 
     # Data - data covarance matrix
     Muu = cov.Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
@@ -134,17 +111,14 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
 
     Cdd = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))
 
-    xm = xm.ravel() - xdmid
-    ym = ym.ravel() - ydmid
-    xmddist = xm[:, np.newaxis] - xd[np.newaxis, :]
-    ymddist = ym[:, np.newaxis] - yd[np.newaxis, :]
+    xmddist, ymddist = mat.xy_distance(xm, ym, xd, yd)
 
     Mpsiu = cov.Cpsiu(xmddist, ymddist, 1, l)
     Mpsiv = cov.Cpsiv(xmddist, ymddist, 1, l)
 
     Cmd = np.hstack((Mpsiu, Mpsiv))
 
-    A, _, _, _ = np.linalg.lstsq(Cdd, phi_obs, rcond=None)
+    A, _, _, _ = np.linalg.lstsq(Cdd, uvobs, rcond=None)
 
     psi = Cmd @ A
 

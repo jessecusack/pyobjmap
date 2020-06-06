@@ -12,6 +12,12 @@ def plane_coeff(x, y, z):
 
 
 def spherical_polar_gradient(f, lon, lat, r=6371000.0):
+    """
+    f - scalar
+    lon - -180 to 180
+    lat - -90 to 90
+    Doesn't deal with the dateline...
+    """
     nr, nc = f.shape
     if (nr != len(lat)) or (nc != len(lon)):
         raise ValueError(
