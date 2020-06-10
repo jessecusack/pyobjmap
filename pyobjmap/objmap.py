@@ -3,7 +3,7 @@ from . import covariance as cov
 from . import matrix as mat
 
 
-def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
+def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean', coords='cartesian'):
     """Needs docstring."""
 
     # Use the covariance function specified.
@@ -27,7 +27,7 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
 
     # Construct data - data distance matrix in coordinate system where
     # zero is at the centre of the data.
-    Rdd = mat.r_distance(xd, yd)
+    Rdd = mat.r_distance(xd, yd, coords=coords)
 
     # Data - data covarance matrix using the function.
     Cdd0 = cfunc(Rdd, 1, l)
@@ -35,7 +35,7 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean'):
     Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
 
     # Construct model - data distance matrix.
-    Rmd = mat.r_distance(xm, ym, xd, yd)
+    Rmd = mat.r_distance(xm, ym, xd, yd, coords=coords)
 
     # Construct the model - data covariance matrix.
     Cmd = cfunc(Rmd, 1, l)
