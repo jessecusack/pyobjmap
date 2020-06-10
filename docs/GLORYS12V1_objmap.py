@@ -118,13 +118,14 @@ vort = dvdlon - dudlat
 
 # %%
 fig, axs = plt.subplots(1, 2, sharey=True, figsize=(9, 4))
-axs[0].pcolormesh(dsbox.longitude, dsbox.latitude, div, cmap='coolwarm', vmin=-8e-7, vmax=8e-7)
+axs[0].pcolormesh(dsbox.longitude, dsbox.latitude, div, cmap='coolwarm', vmin=-2e-5, vmax=2e-5)
 axs[0].set_title('div')
-axs[1].pcolormesh(dsbox.longitude, dsbox.latitude, vort, cmap='coolwarm', vmin=-8e-7, vmax=8e-7)
+CP = axs[1].pcolormesh(dsbox.longitude, dsbox.latitude, vort, cmap='coolwarm', vmin=-2e-5, vmax=2e-5)
 axs[1].set_title('vort')
+plt.colorbar(CP)
 
 # %% [markdown]
-# Rossby number
+# # Rossby number
 
 # %%
 # Earth rotates once per day (to a very good approximation)
@@ -134,7 +135,7 @@ fcor = (4*np.pi/Tearth)*np.sin(np.deg2rad(dsbox.latitude))  # Don't forget to ch
 Ro = np.abs(vort/fcor.values[:, np.newaxis])
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 4))
-CP = ax.pcolormesh(dsbox.longitude, dsbox.latitude, Ro)
+CP = ax.contourf(dsbox.longitude, dsbox.latitude, Ro, np.linspace(0, 1, 5))
 ax.set_title('Ro')
 plt.colorbar(CP)
 
@@ -455,8 +456,8 @@ A = 5e8
 nlon = 50
 nlat = 100
 
-lonm = np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
-latm = np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
+lonm = dmbox.longitude.values  # np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
+latm = dmbox.latitude.values  # np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
 
 lonmg, latmg = np.meshgrid(lonm, latm)
 ymg = rearth*np.deg2rad(latmg - latmid)
