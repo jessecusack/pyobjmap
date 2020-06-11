@@ -11,6 +11,29 @@ def plane_coeff(x, y, z):
     return C
 
 
+def cartesian_gradient(f, x, y):
+    """
+    f : 2d array
+    x : 1d array (colums)
+    y : 1d array (rows)
+
+    """
+    f = np.asarray(f)
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    nr, nc = f.shape
+    if (nr != len(y)) or (nc != len(x)):
+        raise ValueError(
+            "y and x are expected to be rows and columns respectively"
+        )
+
+    dfdy = np.gradient(f, y, axis=0)
+    dfdx = np.gradient(f, x, axis=1)
+
+    return dfdx, dfdy
+
+
 def spherical_polar_gradient(f, lon, lat, r=6371000.0):
     """
     f : scalar array
@@ -25,7 +48,7 @@ def spherical_polar_gradient(f, lon, lat, r=6371000.0):
     nr, nc = f.shape
     if (nr != len(lat)) or (nc != len(lon)):
         raise ValueError(
-            "Latitude and longitude are expected to be rows and" "columns respectively"
+            "Latitude and longitude are expected to be rows and columns respectively"
         )
 
     _, latg = np.meshgrid(lon, lat)
