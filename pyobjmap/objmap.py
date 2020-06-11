@@ -96,8 +96,10 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
     """Map velocity observations to non-divergent streamfunction"""
     input_shape = xm.shape
 
-    ud = ud - ud.mean()
-    vd = vd - vd.mean()
+    udmean = ud.mean()
+    vdmean = vd.mean()
+    ud = ud - udmean
+    vd = vd - vdmean
 
     uvobs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
 
@@ -122,4 +124,7 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
 
     psi = Cmd @ A
 
-    return psi.reshape(input_shape)
+    # Reshape and add back the mean velocity...
+    psi = psi.reshape(input_shape) + udmean*ym - vdmean*xm
+
+    return psi
