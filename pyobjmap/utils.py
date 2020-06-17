@@ -24,9 +24,7 @@ def cartesian_gradient(f, x, y):
 
     nr, nc = f.shape
     if (nr != len(y)) or (nc != len(x)):
-        raise ValueError(
-            "y and x are expected to be rows and columns respectively"
-        )
+        raise ValueError("y and x are expected to be rows and columns respectively")
 
     dfdy = np.gradient(f, y, axis=0)
     dfdx = np.gradient(f, x, axis=1)
@@ -61,11 +59,11 @@ def spherical_polar_gradient(f, lon, lat, r=6371000.0):
 
 
 def haversine(theta):
-    return 0.5*(1 - np.cos(theta))
+    return 0.5 * (1 - np.cos(theta))
 
 
 def archaversine(y):
-    return np.arccos(1 - 2*y)
+    return np.arccos(1 - 2 * y)
 
 
 def haversine_distance(lon0, lat0, lon1, lat1, r=6371000.0):
@@ -95,7 +93,9 @@ def haversine_distance(lon0, lat0, lon1, lat1, r=6371000.0):
     lon1 = np.deg2rad(lon1)
     lat1 = np.deg2rad(lat1)
 
-    dist = r*archaversine(haversine(lat1 - lat0) + np.cos(lat1)*np.cos(lat2)*haversine(lon1 - lon0))
+    dist = r * archaversine(
+        haversine(lat1 - lat0) + np.cos(lat1) * np.cos(lat2) * haversine(lon1 - lon0)
+    )
 
     return dist
 

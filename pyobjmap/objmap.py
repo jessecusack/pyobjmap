@@ -1,9 +1,29 @@
 import numpy as np
+
 from . import covariance as cov
 from . import matrix as mat
+from . import utils
 
 
-def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean', coords='cartesian'):
+def relerr(Cdd, Cmd):
+    """Relative error."""
+    A, _, _, _ = np.linalg.lstsq(Cdd, Cmd.T, rcond=None)
+    return 1 - np.diag(Cmd @ A)
+
+
+def objmap(
+    xd,
+    yd,
+    zd,
+    xm,
+    ym,
+    SNR,
+    l,
+    cfunc="gauss",
+    detrend="mean",
+    coords="cartesian",
+    return_err=False,
+):
     """Needs docstring."""
 
     # Use the covariance function specified.
@@ -15,8 +35,8 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean', coords='ca
     elif detrend == "mean":
         ztrend = zd.mean()
     elif detrend == "plane":
-        pcoef = plane_coeff(xd, yd, zd)
-        ztrend = pcoef[0]*xd + pcoef[1]*yd + pcoef[2]
+        pcoef = utils.plane_coeff(xd, yd, zd)
+        ztrend = pcoef[0] * xd + pcoef[1] * yd + pcoef[2]
     else:
         raise ValueError("detrend = {}, is not available.".format(detrend))
 
@@ -32,7 +52,7 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean', coords='ca
     # Data - data covarance matrix using the function.
     Cdd0 = cfunc(Rdd, 1, l)
     # Add variance back in.
-    Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
+    Cdd = Cdd0 + np.eye(*Cdd0.shape) / SNR
 
     # Construct model - data distance matrix.
     Rmd = mat.r_distance(xm, ym, xd, yd, coords=coords)
@@ -49,12 +69,16 @@ def objmap(xd, yd, zd, xm, ym, SNR, l, cfunc='gauss', detrend='mean', coords='ca
     if detrend == "mean":
         zmg += ztrend
     elif detrend == "plane":
-        zmg += pcoef[0]*xm + pcoef[1]*ym + pcoef[2]
+        zmg += pcoef[0] * xm + pcoef[1] * ym + pcoef[2]
 
-    return zmg
+    if return_err:
+        err = relerr(Cdd, Cmd).reshape(xm.shape)
+        return zmg, err
+    else:
+        return zmg
 
 
-def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
+def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0, return_err=False):
     """Needs docstring."""
 
     # Use the covariance function specified.
@@ -74,7 +98,7 @@ def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
     # Data - data covarance matrix using the function.
     Cdd0 = cfunc(xdist, ydist, 1, lx, ly, theta)
     # Add variance back in.
-    Cdd = Cdd0 + np.eye(*Cdd0.shape)/SNR
+    Cdd = Cdd0 + np.eye(*Cdd0.shape) / SNR
 
     # Construct model - data distance matrix.
     xmddist, ymddist = mat.xy_distance(xm, ym, xd, yd)
@@ -89,10 +113,14 @@ def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0):
 
     zmg += ztrend
 
-    return zmg
+    if return_err:
+        err = relerr(Cdd, Cmd).reshape(xm.shape)
+        return zmg, err
+    else:
+        return zmg
 
 
-def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
+def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
     """Map velocity observations to non-divergent streamfunction"""
     input_shape = xm.shape
 
@@ -107,8 +135,8 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
     xdist, ydist = mat.xy_distance(xd, yd)
 
     # Data - data covarance matrix
-    Muu = cov.Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
-    Mvv = cov.Cvv(xdist, ydist, 1, l) + np.eye(*xdist.shape)/SNR
+    Muu = cov.Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape) / SNR
+    Mvv = cov.Cvv(xdist, ydist, 1, l) + np.eye(*xdist.shape) / SNR
     Muv = cov.Cuv(xdist, ydist, 1, l)
 
     Cdd = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))
@@ -125,6 +153,10 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR):
     psi = Cmd @ A
 
     # Reshape and add back the mean velocity...
-    psi = psi.reshape(input_shape) + udmean*ym - vdmean*xm
+    psi = psi.reshape(input_shape) + udmean * ym - vdmean * xm
 
-    return psi
+    if return_err:
+        err = relerr(Cdd, Cmd).reshape(xm.shape)
+        return psi, err
+    else:
+        return psi

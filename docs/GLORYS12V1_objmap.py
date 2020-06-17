@@ -27,13 +27,13 @@
 # https://resources.marine.copernicus.eu/?option=com_csw&task=results?option=com_csw&view=details&product_id=GLOBAL_REANALYSIS_PHY_001_030
 
 # %%
-import xarray as xr
 import matplotlib.pyplot as plt
 import numpy as np
-from pyobjmap import objmap
-from pyobjmap import covariance as cov
-from pyobjmap import utils
 import scipy.interpolate as itpl
+import xarray as xr
+
+from pyobjmap import covariance as cov
+from pyobjmap import objmap, utils
 
 
 def nearestidx(value, arr):
@@ -44,7 +44,10 @@ def nearestidx(value, arr):
 # We don't care about sea ice variables or bottom temperature so drop them.
 
 # %%
-ds = xr.open_dataset("../data/mercatorglorys12v1_gl12_mean_20150617_R20150624.nc", drop_variables=["usi", "vsi", "sithick", "siconc", "bottomT"])
+ds = xr.open_dataset(
+    "../data/mercatorglorys12v1_gl12_mean_20150617_R20150624.nc",
+    drop_variables=["usi", "vsi", "sithick", "siconc", "bottomT"],
+)
 
 # %% [markdown]
 # ## Investigate the dataset
@@ -68,8 +71,8 @@ idepth = 0
 
 iwest = nearestidx(west, ds.longitude.values)
 ieast = nearestidx(east, ds.longitude.values)
-isouth = nearestidx(south , ds.latitude.values)
-inorth = nearestidx(north , ds.latitude.values)
+isouth = nearestidx(south, ds.latitude.values)
+inorth = nearestidx(north, ds.latitude.values)
 ilon = np.arange(iwest, ieast, dtype=int)
 ilat = np.arange(isouth, inorth, dtype=int)
 
@@ -83,7 +86,12 @@ dsbox.thetao.plot(ax=ax)
 
 step = 5  # reduce for plotting
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-ax.quiver(dsbox.longitude[::step], dsbox.latitude[::step], dsbox.uo[::step, ::step], dsbox.vo[::step, ::step])
+ax.quiver(
+    dsbox.longitude[::step],
+    dsbox.latitude[::step],
+    dsbox.uo[::step, ::step],
+    dsbox.vo[::step, ::step],
+)
 
 # %% [markdown]
 # Save box to netcdf...
@@ -98,30 +106,40 @@ dsbox.to_netcdf("../data/small_glorys_region.nc")
 # Gradients in sea surface height.
 
 # %%
-dhdlon, dhdlat = utils.spherical_polar_gradient(dsbox.zos, dsbox.longitude, dsbox.latitude)
+dhdlon, dhdlat = utils.spherical_polar_gradient(
+    dsbox.zos, dsbox.longitude, dsbox.latitude
+)
 
 # %%
 fig, axs = plt.subplots(1, 2, sharey=True, figsize=(9, 4))
 axs[0].pcolormesh(dsbox.longitude, dsbox.latitude, dhdlon)
-axs[0].set_title('dhdlon')
+axs[0].set_title("dhdlon")
 axs[1].pcolormesh(dsbox.longitude, dsbox.latitude, dhdlat)
-axs[1].set_title('dhdlat')
+axs[1].set_title("dhdlat")
 
 # %% [markdown]
 # Gradients in velocity.
 
 # %%
-dudlon, dudlat = utils.spherical_polar_gradient(dsbox.uo, dsbox.longitude, dsbox.latitude)
-dvdlon, dvdlat = utils.spherical_polar_gradient(dsbox.vo, dsbox.longitude, dsbox.latitude)
+dudlon, dudlat = utils.spherical_polar_gradient(
+    dsbox.uo, dsbox.longitude, dsbox.latitude
+)
+dvdlon, dvdlat = utils.spherical_polar_gradient(
+    dsbox.vo, dsbox.longitude, dsbox.latitude
+)
 div = dudlon + dvdlat
 vort = dvdlon - dudlat
 
 # %%
 fig, axs = plt.subplots(1, 2, sharey=True, figsize=(9, 4))
-axs[0].pcolormesh(dsbox.longitude, dsbox.latitude, div, cmap='coolwarm', vmin=-2e-5, vmax=2e-5)
-axs[0].set_title('div')
-CP = axs[1].pcolormesh(dsbox.longitude, dsbox.latitude, vort, cmap='coolwarm', vmin=-2e-5, vmax=2e-5)
-axs[1].set_title('vort')
+axs[0].pcolormesh(
+    dsbox.longitude, dsbox.latitude, div, cmap="coolwarm", vmin=-2e-5, vmax=2e-5
+)
+axs[0].set_title("div")
+CP = axs[1].pcolormesh(
+    dsbox.longitude, dsbox.latitude, vort, cmap="coolwarm", vmin=-2e-5, vmax=2e-5
+)
+axs[1].set_title("vort")
 plt.colorbar(CP)
 
 # %% [markdown]
@@ -130,13 +148,15 @@ plt.colorbar(CP)
 # %%
 # Earth rotates once per day (to a very good approximation)
 Tearth = 86400  # seconds
-fcor = (4*np.pi/Tearth)*np.sin(np.deg2rad(dsbox.latitude))  # Don't forget to change to radians
+fcor = (4 * np.pi / Tearth) * np.sin(
+    np.deg2rad(dsbox.latitude)
+)  # Don't forget to change to radians
 
-Ro = np.abs(vort/fcor.values[:, np.newaxis])
+Ro = np.abs(vort / fcor.values[:, np.newaxis])
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 4))
 CP = ax.contourf(dsbox.longitude, dsbox.latitude, Ro, np.linspace(0, 1, 5))
-ax.set_title('Ro')
+ax.set_title("Ro")
 plt.colorbar(CP)
 
 # %% [markdown]
@@ -160,7 +180,7 @@ t_ = dsbox.thetao.values.ravel()[notnan]
 lons_ = londg.ravel()[notnan]
 lats_ = latdg.ravel()[notnan]
 
-n = int(frac*t_.size)  # number of samples.
+n = int(frac * t_.size)  # number of samples.
 
 # Choose samples without replacement.
 sidx = np.random.choice(t_.size, size=(n), replace=False)
@@ -169,11 +189,11 @@ latd = lats_[sidx]
 t = t_[sidx]
 
 # Roughly convert data to x - y coordinates on sphere, with origin at mid of data.
-rearth = 6370800 # metres
-lonmid = 0.5*(dsbox.longitude[0] + dsbox.longitude[-1]).values
-latmid = 0.5*(dsbox.latitude[0] + dsbox.latitude[-1]).values
-xd = rearth*(np.deg2rad(lond - lonmid))*np.cos(np.deg2rad(latd))
-yd = rearth*np.deg2rad(latd - latmid)
+rearth = 6370800  # metres
+lonmid = 0.5 * (dsbox.longitude[0] + dsbox.longitude[-1]).values
+latmid = 0.5 * (dsbox.latitude[0] + dsbox.latitude[-1]).values
+xd = rearth * (np.deg2rad(lond - lonmid)) * np.cos(np.deg2rad(latd))
+yd = rearth * np.deg2rad(latd - latmid)
 
 fig, ax = plt.subplots(1, 1)
 CS = ax.scatter(xd, yd, s=5, c=t)
@@ -183,18 +203,18 @@ plt.colorbar(CS)
 # Investigate data - data covariance.
 
 # %%
-bins = 30 #np.linspace(0, 2e6, 10)
+bins = 30  # np.linspace(0, 2e6, 10)
 
 rbins, Cr = cov.bincovr(xd, yd, t, bins=bins)
-rmid = 0.5*(rbins[1:] + rbins[:-1])
+rmid = 0.5 * (rbins[1:] + rbins[:-1])
 
-popt = cov.covfit(xd, yd, t, bins=bins, cfunc='gauss', p0=[30, 5e5], rfitmax=3e6)
+popt = cov.covfit(xd, yd, t, bins=bins, cfunc="gauss", p0=[30, 5e5], rfitmax=3e6)
 a, l = popt
 
 fig, ax = plt.subplots(1, 1)
-ax.plot(rmid, Cr, 'x')
+ax.plot(rmid, Cr, "x")
 ax.plot(rmid, cov.gauss(rmid, a, l))
-ax.set_title('l = {:1.0f} km'.format(l/1000))
+ax.set_title("l = {:1.0f} km".format(l / 1000))
 
 # %% [markdown]
 # Objectively map the field.
@@ -207,23 +227,34 @@ l = 500e3
 lonm = np.linspace(dsbox.longitude[0], dsbox.longitude[-1], nlon, retstep=False)
 latm = np.linspace(dsbox.latitude[0], dsbox.latitude[-1], nlat, retstep=False)
 
-latmg, lonmg = np.meshgrid(latm, lonm, indexing='ij')
-ymg = rearth*np.deg2rad(latmg - latmid)
-xmg = rearth*(np.deg2rad(lonmg - lonmid))*np.cos(np.deg2rad(latmg))
+latmg, lonmg = np.meshgrid(latm, lonm, indexing="ij")
+ymg = rearth * np.deg2rad(latmg - latmid)
+xmg = rearth * (np.deg2rad(lonmg - lonmid)) * np.cos(np.deg2rad(latmg))
 
-tg = objmap.objmap(xd, yd, t, xmg, ymg, a, l, cfunc='gauss', detrend="mean")
+tg, tgerr = objmap.objmap(
+    xd, yd, t, xmg, ymg, a, l, cfunc="gauss", detrend="mean", return_err=True
+)
 
 # %%
 clevs = np.linspace(4, 24, 11)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-C = ax.contourf(lonm, latm, tg, clevs, extend='both')
+C = ax.contourf(lonm, latm, tg, clevs, extend="both")
 ax.scatter(lond, latd, s=2)
 plt.colorbar(C)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend='both')
+C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend="both")
 ax.scatter(lond, latd, s=2)
+plt.colorbar(C)
+
+# %% [markdown]
+# Errors...
+
+# %%
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+C = ax.contourf(lonm, latm, tgerr)
+ax.scatter(lond, latd, s=2, color='k')
 plt.colorbar(C)
 
 # %% [markdown]
@@ -235,8 +266,8 @@ bins = [np.linspace(0, 3e6, 31), np.linspace(0, 1.5e6, 21)]
 
 # xbins, ybins, Cxy = objmap.bincovxy(xd, yd, t, bins=bins)
 xbins, ybins, Cxy = cov.bincovxyabs(xd, yd, t, bins=bins)
-xmid = 0.5*(xbins[1:] + xbins[:-1])
-ymid = 0.5*(ybins[1:] + ybins[:-1])
+xmid = 0.5 * (xbins[1:] + xbins[:-1])
+ymid = 0.5 * (ybins[1:] + ybins[:-1])
 
 # %%
 clev = np.linspace(0, 40, 11)
@@ -246,13 +277,15 @@ ly = 250e3
 xmidg, ymidg = np.meshgrid(xmid, ymid)
 
 fig, ax = plt.subplots(1, 1)
-ax.set_aspect('equal')
-CC = ax.contourf(xmid, ymid, Cxy, clev, extend='both')
+ax.set_aspect("equal")
+CC = ax.contourf(xmid, ymid, Cxy, clev, extend="both")
 plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1)
-ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, cov.gauss2d(xmidg, ymidg, a, lx, ly, 2), clev, extend='both')
+ax.set_aspect("equal")
+CC = ax.contourf(
+    xmidg, ymidg, cov.gauss2d(xmidg, ymidg, a, lx, ly, 2), clev, extend="both"
+)
 plt.colorbar(CC)
 
 # %%
@@ -261,19 +294,24 @@ ly = 250e3
 theta = 2
 SNR = 4
 
-tg = objmap.objmap2(xd, yd, t, xmg, ymg, SNR, lx, ly, theta)
+tg, tgerr = objmap.objmap2(xd, yd, t, xmg, ymg, SNR, lx, ly, theta, return_err=True)
 
 # %%
 clevs = np.linspace(4, 24, 11)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-C = ax.contourf(lonm, latm, tg, clevs, extend='both')
+C = ax.contourf(lonm, latm, tg, clevs, extend="both")
 ax.scatter(lond, latd, s=2)
 plt.colorbar(C)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend='both')
+C = ax.contourf(dsbox.longitude, dsbox.latitude, dsbox.thetao, clevs, extend="both")
 ax.scatter(lond, latd, s=2)
+plt.colorbar(C)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+C = ax.contourf(lonm, latm, tgerr)
+ax.scatter(lond, latd, s=2, color='k')
 plt.colorbar(C)
 
 # %% [markdown]
@@ -290,8 +328,8 @@ idepth = 0
 
 iwest = nearestidx(west, ds.longitude.values)
 ieast = nearestidx(east, ds.longitude.values)
-isouth = nearestidx(south , ds.latitude.values)
-inorth = nearestidx(north , ds.latitude.values)
+isouth = nearestidx(south, ds.latitude.values)
+inorth = nearestidx(north, ds.latitude.values)
 ilon = np.arange(iwest, ieast, dtype=int)
 ilat = np.arange(isouth, inorth, dtype=int)
 
@@ -299,8 +337,13 @@ dmbox = ds.isel(longitude=ilon, latitude=ilat, depth=idepth, time=0)
 
 step = 3  # reduce for plotting
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
-ax.set_aspect('equal')
-ax.quiver(dmbox.longitude[::step], dmbox.latitude[::step], dmbox.uo[::step, ::step], dmbox.vo[::step, ::step])
+ax.set_aspect("equal")
+ax.quiver(
+    dmbox.longitude[::step],
+    dmbox.latitude[::step],
+    dmbox.uo[::step, ::step],
+    dmbox.vo[::step, ::step],
+)
 
 # %%
 np.random.seed(82615811)
@@ -316,7 +359,7 @@ v_ = dmbox.vo.values.ravel()[notnan]
 lons_ = londg.ravel()[notnan]
 lats_ = latdg.ravel()[notnan]
 
-n = int(frac*u_.size)  # number of samples.
+n = int(frac * u_.size)  # number of samples.
 
 # Choose samples without replacement.
 sidx = np.random.choice(u_.size, size=(n), replace=False)
@@ -326,14 +369,14 @@ u = u_[sidx]
 v = v_[sidx]
 
 # Roughly convert data to x - y coordinates on sphere, with origin at mid of data.
-rearth = 6370800 # metres
-lonmid = 0.5*(dmbox.longitude[0] + dmbox.longitude[-1]).values
-latmid = 0.5*(dmbox.latitude[0] + dmbox.latitude[-1]).values
-xd = rearth*(np.deg2rad(lond - lonmid))*np.cos(np.deg2rad(latd))
-yd = rearth*np.deg2rad(latd - latmid)
+rearth = 6370800  # metres
+lonmid = 0.5 * (dmbox.longitude[0] + dmbox.longitude[-1]).values
+latmid = 0.5 * (dmbox.latitude[0] + dmbox.latitude[-1]).values
+xd = rearth * (np.deg2rad(lond - lonmid)) * np.cos(np.deg2rad(latd))
+yd = rearth * np.deg2rad(latd - latmid)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
-ax.set_aspect('equal')
+ax.set_aspect("equal")
 ax.quiver(xd, yd, u, v)
 
 # %% [markdown]
@@ -347,8 +390,8 @@ A = 5e8
 bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
 
 xbins, ybins, Cxy = cov.bincovxyuv(xd, yd, u, v, bins=bins)
-xmid = 0.5*(xbins[1:] + xbins[:-1])
-ymid = 0.5*(ybins[1:] + ybins[:-1])
+xmid = 0.5 * (xbins[1:] + xbins[:-1])
+ymid = 0.5 * (ybins[1:] + ybins[:-1])
 
 clev = np.linspace(-0.015, 0.015, 11)
 
@@ -356,20 +399,22 @@ xmidg, ymidg = np.meshgrid(xmid, ymid)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend="both")
 plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, cov.Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(
+    xmidg, ymidg, cov.Cuv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend="both"
+)
 plt.colorbar(CC)
 
 # %%
 bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
 
 xbins, ybins, Cxy = cov.bincovxyuv(xd, yd, u, u, bins=bins)
-xmid = 0.5*(xbins[1:] + xbins[:-1])
-ymid = 0.5*(ybins[1:] + ybins[:-1])
+xmid = 0.5 * (xbins[1:] + xbins[:-1])
+ymid = 0.5 * (ybins[1:] + ybins[:-1])
 
 clev = np.linspace(-0.015, 0.015, 11)
 
@@ -377,20 +422,22 @@ xmidg, ymidg = np.meshgrid(xmid, ymid)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend="both")
 plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, cov.Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(
+    xmidg, ymidg, cov.Cuu(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend="both"
+)
 plt.colorbar(CC)
 
 # %%
 bins = [np.linspace(-250e3, 250e3, 11), np.linspace(-250e3, 250e3, 11)]
 
 xbins, ybins, Cxy = cov.bincovxyuv(xd, yd, v, v, bins=bins)
-xmid = 0.5*(xbins[1:] + xbins[:-1])
-ymid = 0.5*(ybins[1:] + ybins[:-1])
+xmid = 0.5 * (xbins[1:] + xbins[:-1])
+ymid = 0.5 * (ybins[1:] + ybins[:-1])
 
 clev = np.linspace(-0.015, 0.015, 11)
 
@@ -398,12 +445,14 @@ xmidg, ymidg = np.meshgrid(xmid, ymid)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(xmid, ymid, Cxy, clev, cmap="coolwarm", extend="both")
 plt.colorbar(CC)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 6))
 # ax.set_aspect('equal')
-CC = ax.contourf(xmidg, ymidg, cov.Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend='both')
+CC = ax.contourf(
+    xmidg, ymidg, cov.Cvv(xmidg, ymidg, A, l), clev, cmap="coolwarm", extend="both"
+)
 plt.colorbar(CC)
 
 # %% [markdown]
@@ -456,23 +505,31 @@ A = 5e8
 nlon = 50
 nlat = 100
 
-lonm = dmbox.longitude.values  # np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
-latm = dmbox.latitude.values  # np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
+lonm = (
+    dmbox.longitude.values
+)  # np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
+latm = (
+    dmbox.latitude.values
+)  # np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
 
 lonmg, latmg = np.meshgrid(lonm, latm)
-ymg = rearth*np.deg2rad(latmg - latmid)
-xmg = rearth*(np.deg2rad(lonmg - lonmid))*np.cos(np.deg2rad(latmg))
+ymg = rearth * np.deg2rad(latmg - latmid)
+xmg = rearth * (np.deg2rad(lonmg - lonmid)) * np.cos(np.deg2rad(latmg))
 
-psi = objmap.objmap_streamfunc(xd, yd, u, v, xmg, ymg, l, SNR)
+psi, psierr = objmap.objmap_streamfunc(xd, yd, u, v, xmg, ymg, l, SNR, return_err=True)
 
 # %% [markdown]
 # Lets look at the mapped field.
 
 # %%
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
-ax.set_aspect('equal')
-ax.contour(lonmg, latmg, psi, 10, colors='k')
+ax.set_aspect("equal")
+ax.contour(lonmg, latmg, psi, 10, colors="k")
 ax.quiver(lond, latd, u, v)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+C = ax.contourf(lonmg, latmg, psierr)
+plt.colorbar(C)
 
 # %%
 vm, um = utils.spherical_polar_gradient(psi, lonm, latm)
@@ -494,24 +551,35 @@ vortm = dvmdx - dumdy
 step = 3
 scale = 30
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
-ax.set_aspect('equal')
-ax.quiver(lonmg[::step, ::step], latmg[::step, ::step], um[::step, ::step], vm[::step, ::step], color='r', scale=scale)
+ax.set_aspect("equal")
+ax.quiver(
+    lonmg[::step, ::step],
+    latmg[::step, ::step],
+    um[::step, ::step],
+    vm[::step, ::step],
+    color="r",
+    scale=scale,
+)
 ax.quiver(lond, latd, u, v, scale=scale)
 
 # %% [markdown]
 # Divergence.
 
 # %%
-c = 1e-8
+c = 4e-5
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
-ax.set_aspect('equal')
-CF = ax.contourf(lonmg, latmg, divm, np.linspace(-c, c, 11), cmap='coolwarm', extend='both')
+ax.set_aspect("equal")
+CF = ax.contourf(
+    lonmg, latmg, divm, np.linspace(-c, c, 11), cmap="coolwarm", extend="both"
+)
 plt.colorbar(CF)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
-ax.set_aspect('equal')
-CF = ax.contourf(lonmg, latmg, vortm, np.linspace(-c, c, 11), cmap='coolwarm', extend='both')
+ax.set_aspect("equal")
+CF = ax.contourf(
+    lonmg, latmg, vortm, np.linspace(-c, c, 11), cmap="coolwarm", extend="both"
+)
 plt.colorbar(CF)
 
 # %%
