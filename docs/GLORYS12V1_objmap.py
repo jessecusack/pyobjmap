@@ -527,9 +527,9 @@ ax.set_aspect("equal")
 ax.contour(lonmg, latmg, psi, 10, colors="k")
 ax.quiver(lond, latd, u, v)
 
-fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-C = ax.contourf(lonmg, latmg, psierr)
-plt.colorbar(C)
+# fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+# C = ax.contourf(lonmg, latmg, psierr)
+# plt.colorbar(C)
 
 # %%
 vm, um = utils.spherical_polar_gradient(psi, lonm, latm)

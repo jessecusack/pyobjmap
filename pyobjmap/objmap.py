@@ -26,6 +26,12 @@ def objmap(
 ):
     """Needs docstring."""
 
+    xd = np.asarray(xd).ravel()
+    yd = np.asarray(yd).ravel()
+    zd = np.asarray(zd).ravel()
+    xm = np.asarray(xm)
+    ym = np.asarray(ym)
+
     # Use the covariance function specified.
     cfunc = cov.funccheck(cfunc)
 
@@ -81,6 +87,12 @@ def objmap(
 def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0, return_err=False):
     """Needs docstring."""
 
+    xd = np.asarray(xd).ravel()
+    yd = np.asarray(yd).ravel()
+    zd = np.asarray(zd).ravel()
+    xm = np.asarray(xm)
+    ym = np.asarray(ym)
+
     # Use the covariance function specified.
     cfunc = cov.gauss2d
 
@@ -122,6 +134,13 @@ def objmap2(xd, yd, zd, xm, ym, SNR, lx, ly, theta=0, return_err=False):
 
 def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
     """Map velocity observations to non-divergent streamfunction"""
+    xd = np.asarray(xd).ravel()
+    yd = np.asarray(yd).ravel()
+    ud = np.asarray(ud).ravel()
+    vd = np.asarray(vd).ravel()
+    xm = np.asarray(xm)
+    ym = np.asarray(ym)
+
     input_shape = xm.shape
 
     udmean = ud.mean()
@@ -129,7 +148,8 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
     ud = ud - udmean
     vd = vd - vdmean
 
-    uvobs = np.hstack((ud, vd))[:, np.newaxis]  # Column vector...
+    # Data vector, should be a column vector.
+    uvobs = np.hstack((ud, vd))[:, np.newaxis]
 
     # Data data distances
     xdist, ydist = mat.xy_distance(xd, yd)
@@ -161,7 +181,7 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
     psi = psi.reshape(input_shape) + udmean * ym - vdmean * xm
 
     if return_err:
-        err = relerr(Cdd, Cmd).reshape(xm.shape)
+        err = relerr(Cdd, Cmd).reshape(input_shape)
         return psi, err
     else:
         return psi
