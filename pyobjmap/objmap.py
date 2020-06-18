@@ -134,9 +134,14 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
     # Data data distances
     xdist, ydist = mat.xy_distance(xd, yd)
 
-    # Data - data covarance matrix
-    Muu = cov.Cuu(xdist, ydist, 1, l) + np.eye(*xdist.shape) / SNR
-    Mvv = cov.Cvv(xdist, ydist, 1, l) + np.eye(*xdist.shape) / SNR
+    # Data - data covarance matrix plus the noise.
+    # The diagonal of the normalised covariance of uu and vv is not equal to 1 even
+    # though A = 1. This is because A represents the streamfunction variance
+    # which must be scaled to get the velocity variance. The scaling factor for
+    # a Gaussian covariance function is 2/(3*l**2) i.e. it scales as l**-2.
+    # This is why we multiply by cov.Cuu(0, 0, 1, l).
+    Muu = cov.Cuu(xdist, ydist, 1, l) + cov.Cuu(0, 0, 1, l) * np.eye(*xdist.shape) / SNR
+    Mvv = cov.Cvv(xdist, ydist, 1, l) + cov.Cvv(0, 0, 1, l) * np.eye(*xdist.shape) / SNR
     Muv = cov.Cuv(xdist, ydist, 1, l)
 
     Cdd = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))

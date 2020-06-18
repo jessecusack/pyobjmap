@@ -499,7 +499,7 @@ plt.colorbar(CC)
 #
 
 # %%
-SNR = np.inf
+SNR = 1000
 l = 200e3
 A = 5e8
 nlon = 50
@@ -516,7 +516,7 @@ lonmg, latmg = np.meshgrid(lonm, latm)
 ymg = rearth * np.deg2rad(latmg - latmid)
 xmg = rearth * (np.deg2rad(lonmg - lonmid)) * np.cos(np.deg2rad(latmg))
 
-psi, psierr = objmap.objmap_streamfunc(xd, yd, u, v, xmg, ymg, l, SNR, return_err=True)
+psi = objmap.objmap_streamfunc(xd, yd, u, v, xmg, ymg, l, SNR, return_err=False)
 
 # %% [markdown]
 # Lets look at the mapped field.
@@ -581,5 +581,3 @@ CF = ax.contourf(
     lonmg, latmg, vortm, np.linspace(-c, c, 11), cmap="coolwarm", extend="both"
 )
 plt.colorbar(CF)
-
-# %%
