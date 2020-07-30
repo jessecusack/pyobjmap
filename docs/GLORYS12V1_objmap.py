@@ -143,7 +143,7 @@ axs[1].set_title("vort")
 plt.colorbar(CP)
 
 # %% [markdown]
-# # Rossby number
+# ### Rossby number
 
 # %%
 # Earth rotates once per day (to a very good approximation)
@@ -584,4 +584,104 @@ CF = ax.contourf(
 plt.colorbar(CF)
 ax.set_title('Vorticity')
 
+# %% [markdown]
+# ## Mapping velocity and height to a geostrophic streamfunction
+
 # %%
+np.random.seed(58194851)
+frac = 0.04  # Fraction of data to sample, in this case 4 %.
+
+# Grid the longitude and latitude data.
+londg, latdg = np.meshgrid(dmbox.longitude.values, dmbox.latitude.values)
+
+notnan = np.isfinite(dmbox.thetao.values.ravel())
+
+u_ = dmbox.uo.values.ravel()[notnan]
+v_ = dmbox.vo.values.ravel()[notnan]
+h_ = dmbox.zos.values.ravel()[notnan]
+lons_ = londg.ravel()[notnan]
+lats_ = latdg.ravel()[notnan]
+
+n = int(frac * u_.size)  # number of samples.
+
+# Choose samples without replacement.
+sidx = np.random.choice(u_.size, size=(n), replace=False)
+lond = lons_[sidx]
+latd = lats_[sidx]
+u = u_[sidx]
+v = v_[sidx]
+h = h_[sidx]
+
+# Roughly convert data to x - y coordinates on sphere, with origin at mid of data.
+rearth = 6370800  # metres
+lonmid = 0.5 * (dmbox.longitude[0] + dmbox.longitude[-1]).values
+latmid = 0.5 * (dmbox.latitude[0] + dmbox.latitude[-1]).values
+xd = rearth * (np.deg2rad(lond - lonmid)) * np.cos(np.deg2rad(latd))
+yd = rearth * np.deg2rad(latd - latmid)
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect("equal")
+Q = ax.quiver(xd, yd, u, v, h)
+plt.colorbar(Q)
+
+# %%
+SNR = 100000
+l = 200e3
+A = 5e8
+nlon = 50
+nlat = 100
+g = 9.91
+Tearth = 86400  # seconds
+fcor = (4 * np.pi / Tearth) * np.sin(
+    np.deg2rad(latd.mean())
+)  # Don't forget to change to radians
+
+lonm = (
+    dmbox.longitude.values
+)  # np.linspace(dmbox.longitude[0], dmbox.longitude[-1], nlon, retstep=False)
+latm = (
+    dmbox.latitude.values
+)  # np.linspace(dmbox.latitude[0], dmbox.latitude[-1], nlat, retstep=False)
+
+lonmg, latmg = np.meshgrid(lonm, latm)
+ymg = rearth * np.deg2rad(latmg - latmid)
+xmg = rearth * (np.deg2rad(lonmg - lonmid)) * np.cos(np.deg2rad(latmg))
+
+psi = objmap.objmap_streamfunc_uvh(xd, yd, u, v, h, xmg, ymg, l, SNR, fcor, g, return_err=False)
+
+# %%
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect("equal")
+ax.contour(lonmg, latmg, psi, 10, colors="k")
+ax.quiver(lond, latd, u, v)
+
+# %%
+step = 3
+scale = 30
+
+vm, um = utils.spherical_polar_gradient(psi, lonm, latm)
+um *= -1
+
+fum = itpl.RectBivariateSpline(latm, lonm, um)
+fvm = itpl.RectBivariateSpline(latm, lonm, vm)
+
+umd = fum(latd, lond, grid=False)
+vmd = fvm(latd, lond, grid=False)
+
+dumdx, dumdy = utils.spherical_polar_gradient(um, lonm, latm)
+dvmdx, dvmdy = utils.spherical_polar_gradient(vm, lonm, latm)
+
+divm = dumdx + dvmdy
+vortm = dvmdx - dumdy
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 9))
+ax.set_aspect("equal")
+ax.quiver(
+    lonmg[::step, ::step],
+    latmg[::step, ::step],
+    um[::step, ::step],
+    vm[::step, ::step],
+    color="r",
+    scale=scale,
+)
+ax.quiver(lond, latd, u, v, scale=scale)

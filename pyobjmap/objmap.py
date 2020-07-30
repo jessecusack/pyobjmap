@@ -186,3 +186,63 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
         return psi, err
     else:
         return psi
+
+    
+def objmap_streamfunc_uvh(xd, yd, ud, vd, hd, xm, ym, l, SNR, fcor, g=9.81, return_err=False):
+    """Map velocity and height observations to non-divergent geostrophic stream function.
+    The Coriolis parameter fcor and gravity (or reduced gravity) g should be specified."""
+    xd = np.asarray(xd).ravel()
+    yd = np.asarray(yd).ravel()
+    ud = np.asarray(ud).ravel()
+    vd = np.asarray(vd).ravel()
+    hd = np.asarray(hd).ravel()
+    xm = np.asarray(xm)
+    ym = np.asarray(ym)
+
+    input_shape = xm.shape
+
+    udmean = ud.mean()
+    vdmean = vd.mean()
+    hdmean = hd.mean()
+    ud = ud - udmean
+    vd = vd - vdmean
+    hd = hd - hdmean
+
+    # Data vector, should be a column vector.
+    uvobs = np.hstack((ud, vd, hd))[:, np.newaxis]
+
+    # Data data distances
+    xdist, ydist = mat.xy_distance(xd, yd)
+
+    # Data - data covarance matrix plus the noise.
+    Muu = cov.Cuu(xdist, ydist, 1, l) + cov.Cuu(0, 0, 1, l) * np.eye(*xdist.shape) / SNR
+    Mvv = cov.Cvv(xdist, ydist, 1, l) + cov.Cvv(0, 0, 1, l) * np.eye(*xdist.shape) / SNR
+    Mhh = (fcor / g) ** 2 * (cov.Cpsipsi(xdist, ydist, 1, l) + np.eye(*xdist.shape) / SNR)
+    Muv = cov.Cuv(xdist, ydist, 1, l)
+    # I am not sure why these need a minus sign but they do...
+    Muh = - (fcor / g) * cov.Cpsiu(xdist, ydist, 1, l)
+    Mvh = - (fcor / g) * cov.Cpsiv(xdist, ydist, 1, l)
+
+    Cdd = np.vstack((np.hstack((Muu, Muv, Muh)), np.hstack((Muv, Mvv, Mvh)), np.hstack((Muh, Mvh, Mhh))))
+
+    xmddist, ymddist = mat.xy_distance(xm, ym, xd, yd)
+
+    Mpsiu = cov.Cpsiu(xmddist, ymddist, 1, l)
+    Mpsiv = cov.Cpsiv(xmddist, ymddist, 1, l)
+    Mpsih = - (fcor / g) * cov.Cpsipsi(xmddist, ymddist, 1, l)
+
+    Cmd = np.hstack((Mpsiu, Mpsiv, Mpsih))
+
+    A, _, _, _ = np.linalg.lstsq(Cdd, uvobs, rcond=None)
+
+    psi = Cmd @ A
+
+    # Reshape and add back the mean velocity. Also add a minus sign because we want to 
+    # follow the oceanographic convention whereby dpsi/dx = v and dpsi/dy = -u.
+    psi = -psi.reshape(input_shape) - udmean * ym + vdmean * xm - (g / fcor) * hdmean
+
+    if return_err:
+        err = relerr(Cdd, Cmd).reshape(input_shape)
+        return psi, err
+    else:
+        return psi

@@ -159,6 +159,11 @@ def covfit(x, y, z, bins=10, cfunc="gauss", p0=[1, 1], rfitmax=None):
 
 
 # Gaussian covariance functions for velocity and streamfunction
+def Cpsipsi(x, y, A, l):
+    r = np.sqrt(x ** 2 + y ** 2)
+    return A * np.exp(-0.5 * r ** 2 / l ** 2)
+
+
 def Cuu(x, y, A, l):
     r = np.sqrt(x ** 2 + y ** 2)
     return A * (l ** 2 - y ** 2) * np.exp(-0.5 * r ** 2 / l ** 2) / l ** 4
@@ -182,16 +187,3 @@ def Cpsiu(x, y, A, l):
 def Cpsiv(x, y, A, l):
     r = np.sqrt(x ** 2 + y ** 2)
     return -A * x * np.exp(-0.5 * r ** 2 / l ** 2) / l ** 2
-
-
-# def C(x, y, A, l):
-#     r = np.sqrt(x**2 + y**2)
-#     return A*np.exp(-0.5*r**2/l**2)
-
-# def R(x, y, A, l):
-#     r = np.sqrt(x**2 + y**2)
-#     return A*np.exp(-0.5*r**2/l**2)/l**2
-
-# def S(x, y, A, l):
-#     r = np.sqrt(x**2 + y**2)
-#     return A*(l**2 - r**2)*np.exp(-0.5*r**2/l**2)/l**4

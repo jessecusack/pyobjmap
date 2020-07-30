@@ -33,6 +33,10 @@ rdef = sym.sqrt(x**2 + y**2)
 
 # %%
 C = A*sym.exp(-r**2/(2*l**2))
+C
+
+# %%
+C = A*sym.exp(-r**2/(2*l**2))
 print(NumPyPrinter().doprint(C))
 
 # %%
