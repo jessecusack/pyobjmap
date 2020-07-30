@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.4.2
+#       jupytext_version: 1.5.1
 #   kernelspec:
 #     display_name: pyobjmap
 #     language: python
@@ -64,22 +64,46 @@ Cpsiv = - x * R
 print(NumPyPrinter().doprint(Cpsiv))
 
 # %% [markdown]
+# Manual gradients...
+
+# %%
+# Cuu
+C.subs(r, rdef).diff(y).diff(y).simplify().subs(x**2 + y**2, r**2)
+
+# %%
+# Cvv
+C.subs(r, rdef).diff(x).diff(x).simplify().subs(x**2 + y**2, r**2)
+
+# %%
+# Cuv
+-C.subs(r, rdef).diff(x).diff(y).simplify().subs(x**2 + y**2, r**2)
+
+# %%
+# Cpsiu
+-C.subs(r, rdef).diff(y).simplify().subs(x**2 + y**2, r**2)
+
+# %%
+# Cpsiv
+C.subs(r, rdef).diff(x).simplify().subs(x**2 + y**2, r**2)
+
+# %% [markdown]
 # ## Letra
 
 # %%
 Cr_letra = sym.simplify(A*(1 + r/l + (r/l)**2/6 - (r/l)**3/6)*sym.exp(-r/l))
-print(NumPyPrinter().doprint(Cr_letra))
+Cr_letra
+# print(NumPyPrinter().doprint(Cr_letra))
 
 # %%
-R_letra = sym.simplify((-1/r)*sym.diff(Cr_letra, r))
-print(NumPyPrinter().doprint(R_letra))
+Cuu_letra = Cr_letra.subs(r, rdef).diff(y).diff(y).simplify().subs(sym.sqrt(x**2 + y**2), r)
+Cuu_letra
 
 # %%
-S_letra = sym.simplify(-sym.diff(Cr_letra, r, 2))
-print(NumPyPrinter().doprint(S_letra))
+Cvv_letra = Cr_letra.subs(r, rdef).diff(x).diff(x).simplify().subs(sym.sqrt(x**2 + y**2), r)
+Cvv_letra
 
 # %%
-Cuu = sym.simplify((x**2/r**2)*(R_letra - S_letra) + S_letra)
-print(NumPyPrinter().doprint(Cuu))
+Cuv_letra = -Cr_letra.subs(r, rdef).diff(y).diff(x).simplify().subs(sym.sqrt(x**2 + y**2), r).subs(x**2 + y**2, r**2)
+Cuv_letra
 
 # %%

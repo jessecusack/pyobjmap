@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.4.2
+#       jupytext_version: 1.5.1
 #   kernelspec:
 #     display_name: pyobjmap
 #     language: python
@@ -533,7 +533,7 @@ ax.quiver(lond, latd, u, v)
 
 # %%
 vm, um = utils.spherical_polar_gradient(psi, lonm, latm)
-vm *= -1
+um *= -1
 
 fum = itpl.RectBivariateSpline(latm, lonm, um)
 fvm = itpl.RectBivariateSpline(latm, lonm, vm)
@@ -574,6 +574,7 @@ CF = ax.contourf(
     lonmg, latmg, divm, np.linspace(-c, c, 11), cmap="coolwarm", extend="both"
 )
 plt.colorbar(CF)
+ax.set_title('Divergence')
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
 ax.set_aspect("equal")
@@ -581,3 +582,6 @@ CF = ax.contourf(
     lonmg, latmg, vortm, np.linspace(-c, c, 11), cmap="coolwarm", extend="both"
 )
 plt.colorbar(CF)
+ax.set_title('Vorticity')
+
+# %%

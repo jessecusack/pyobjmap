@@ -177,8 +177,9 @@ def objmap_streamfunc(xd, yd, ud, vd, xm, ym, l, SNR, return_err=False):
 
     psi = Cmd @ A
 
-    # Reshape and add back the mean velocity...
-    psi = psi.reshape(input_shape) + udmean * ym - vdmean * xm
+    # Reshape and add back the mean velocity. Also add a minus sign because we want to 
+    # follow the oceanographic convention whereby dpsi/dx = v and dpsi/dy = -u.
+    psi = -psi.reshape(input_shape) - udmean * ym + vdmean * xm
 
     if return_err:
         err = relerr(Cdd, Cmd).reshape(input_shape)

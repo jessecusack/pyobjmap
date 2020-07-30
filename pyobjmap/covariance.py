@@ -161,12 +161,12 @@ def covfit(x, y, z, bins=10, cfunc="gauss", p0=[1, 1], rfitmax=None):
 # Gaussian covariance functions for velocity and streamfunction
 def Cuu(x, y, A, l):
     r = np.sqrt(x ** 2 + y ** 2)
-    return A * (l ** 2 - r ** 2 + x ** 2) * np.exp(-0.5 * r ** 2 / l ** 2) / l ** 4
+    return A * (l ** 2 - y ** 2) * np.exp(-0.5 * r ** 2 / l ** 2) / l ** 4
 
 
 def Cvv(x, y, A, l):
     r = np.sqrt(x ** 2 + y ** 2)
-    return A * (l ** 2 - r ** 2 + y ** 2) * np.exp(-0.5 * r ** 2 / l ** 2) / l ** 4
+    return A * (l ** 2 - x ** 2) * np.exp(-0.5 * r ** 2 / l ** 2) / l ** 4
 
 
 def Cuv(x, y, A, l):
