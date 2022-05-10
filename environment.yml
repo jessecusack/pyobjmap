@@ -16,3 +16,6 @@ dependencies:
 - sympy
 - black
 - isort
+- jupytext
+- pip:
+    - -e .
