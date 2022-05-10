@@ -2,11 +2,11 @@
 # jupyter:
 #   jupytext:
 #     formats: ipynb,py:percent
+#     notebook_metadata_filter: -jupytext.text_representation.jupytext_version
 #     text_representation:
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.5.1
 #   kernelspec:
 #     display_name: pyobjmap
 #     language: python
@@ -14,17 +14,7 @@
 # ---
 
 # %% [markdown]
-# # Download reanalysis data and test out optimal interpolation
-#
-# We require a portion of the GLORYS 12 V1 dataset. To acquire it, one must make an account on https://resources.marine.copernicus.eu/ and then download the dataset with (WARNING: 1.2GB file):
-#
-# `wget --user=USERNAME --password=PASSWORD ftp://my.cmems-du.eu/Core/GLOBAL_REANALYSIS_PHY_001_030/global-reanalysis-phy-001-030-daily/2015/06/mercatorglorys12v1_gl12_mean_20150617_R20150624.nc`
-#
-# not forgetting to fill in `USERNAME` and `PASSWORD` appropriately. Download the dataset to `../data`. 
-#
-# The dataset contains a single daily mean output from the GLORYS 12 V1 (1/12th degree) global ocean reanalysis. More information on the reanalysis is available here:
-#
-# https://resources.marine.copernicus.eu/?option=com_csw&task=results?option=com_csw&view=details&product_id=GLOBAL_REANALYSIS_PHY_001_030
+# # Optimal interpolation demo
 
 # %%
 import matplotlib.pyplot as plt
@@ -35,75 +25,16 @@ import xarray as xr
 from pyobjmap import covariance as cov
 from pyobjmap import objmap, utils
 
-
-def nearestidx(value, arr):
-    return np.argmin(np.abs(arr - value))
-
-
 # %% [markdown]
-# We don't care about sea ice variables or bottom temperature so drop them.
+# Load the small GLORYS region
 
 # %%
-ds = xr.open_dataset(
-    "../data/mercatorglorys12v1_gl12_mean_20150617_R20150624.nc",
-    drop_variables=["usi", "vsi", "sithick", "siconc", "bottomT"],
-)
+dsbox = xr.open_dataset("../data/small_glorys_region.nc")
 
 # %% [markdown]
-# ## Investigate the dataset
-
-# %%
-ds
-
-# %%
-fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-ds.zos.plot(ax=ax)
-
-# %% [markdown]
-# Select a smaller region that is easier to work with.
-
-# %%
-west = 30
-east = 80
-south = -50
-north = -30
-idepth = 0
-
-iwest = nearestidx(west, ds.longitude.values)
-ieast = nearestidx(east, ds.longitude.values)
-isouth = nearestidx(south, ds.latitude.values)
-inorth = nearestidx(north, ds.latitude.values)
-ilon = np.arange(iwest, ieast, dtype=int)
-ilat = np.arange(isouth, inorth, dtype=int)
-
-dsbox = ds.isel(longitude=ilon, latitude=ilat, depth=idepth, time=0)
-
-fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-dsbox.zos.plot(ax=ax)
-
-fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-dsbox.thetao.plot(ax=ax)
-
-step = 5  # reduce for plotting
-fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-ax.quiver(
-    dsbox.longitude[::step],
-    dsbox.latitude[::step],
-    dsbox.uo[::step, ::step],
-    dsbox.vo[::step, ::step],
-)
-
-# %% [markdown]
-# Save box to netcdf...
-
-# %%
-dsbox.to_netcdf("../data/small_glorys_region.nc")
-
-# %% [markdown]
+# ## Examine the region and its properties
+#
 # Now lets estimate some useful quantities such as the vorticity and divergence. We'll need to apply the vector operators in spherical co-orrdinates since the data are on a lon - lat grid. 
-
-# %% [markdown]
-# Gradients in sea surface height.
 
 # %%
 dhdlon, dhdlat = utils.spherical_polar_gradient(
@@ -324,16 +255,8 @@ west = 50
 east = 60
 south = -50
 north = -35
-idepth = 0
 
-iwest = nearestidx(west, ds.longitude.values)
-ieast = nearestidx(east, ds.longitude.values)
-isouth = nearestidx(south, ds.latitude.values)
-inorth = nearestidx(north, ds.latitude.values)
-ilon = np.arange(iwest, ieast, dtype=int)
-ilat = np.arange(isouth, inorth, dtype=int)
-
-dmbox = ds.isel(longitude=ilon, latitude=ilat, depth=idepth, time=0)
+dmbox = dsbox.sel(longitude=slice(west, east), latitude=slice(south, north))
 
 step = 3  # reduce for plotting
 fig, ax = plt.subplots(1, 1, figsize=(9, 9))
@@ -456,7 +379,7 @@ CC = ax.contourf(
 plt.colorbar(CC)
 
 # %% [markdown]
-# Construct the matrices for the optimal interpolation.
+# The matricies used for optimal interpolation.
 #
 # \begin{equation}
 # \psi^\text{est}(x) = \mathbf{C} \mathbf{A}^{-1} \phi^\text{obs}
