@@ -246,3 +246,59 @@ def objmap_streamfunc_uvh(xd, yd, ud, vd, hd, xm, ym, l, SNR, fcor, g=9.81, retu
         return psi, err
     else:
         return psi
+
+
+def objmap_vgz(xd, zd, vd, bd, xm, zm, l, SNR, fcor, return_err=False):
+    """Map velocity and buoyancy observations to northward geostrophic shear"""
+    xd = np.asarray(xd).ravel()
+    zd = np.asarray(zd).ravel()
+    vd = np.asarray(vd).ravel()
+    bd = np.asarray(bd).ravel()
+    xm = np.asarray(xm)
+    zm = np.asarray(zm)
+
+    input_shape = xm.shape
+
+    vdmean = vd.mean()
+    bdmean = bd.mean()
+    vd = vd - vdmean
+    bd = bd - bdmean
+    
+    # Data vector, should be a column vector.
+    vbobs = np.hstack((vd, bd))[:, np.newaxis]
+
+    # Data data distances
+    xdist, zdist = mat.xy_distance(xd, zd)
+
+    # Data - data covarance matrix plus the noise.
+    # The diagonal of the normalised covariance of uu and vv is not equal to 1 even
+    # though A = 1. This is because A represents the streamfunction variance
+    # which must be scaled to get the velocity variance. The scaling factor for
+    # a Gaussian covariance function is 2/(3*l**2) i.e. it scales as l**-2.
+    # This is why we multiply by cov.Cuu(0, 0, 1, l).
+    Muu = cov.Cuu(xdist, zdist, 1, l) + cov.Cuu(0, 0, 1, l) * np.eye(*xdist.shape) / SNR
+    Mvv = cov.Cvv(xdist, zdist, 1, l) + cov.Cvv(0, 0, 1, l) * np.eye(*xdist.shape) / SNR
+    Muv = cov.Cuv(xdist, zdist, 1, l)
+
+    Cdd = np.vstack((np.hstack((Muu, Muv)), np.hstack((Muv, Mvv))))
+
+    xmddist, zmddist = mat.xy_distance(xm, zm, xd, zd)
+
+    #Mvgzu = #cov.Cpsiu(xmddist, zmddist, 1, l)
+    #Mvgzv = #cov.Cpsiv(xmddist, zmddist, 1, l)
+
+    Cmd = np.hstack((Mvgzv, Mvgzb))
+
+    A, _, _, _ = np.linalg.lstsq(Cdd, vbobs, rcond=None)
+
+    vgz = Cmd @ A
+
+    # Reshape and add back the mean velocity. Also add a minus sign because we want to 
+    # follow the oceanographic convention whereby dpsi/dx = v and dpsi/dy = -u.
+    vgz = -vgz.reshape(input_shape) #- bdmean * xm + vdmean * zm
+
+    if return_err:
+        err = relerr(Cdd, Cmd).reshape(input_shape)
+        return vgz, err
+    else:
+        return vgz
