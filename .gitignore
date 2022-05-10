@@ -1,9 +1,6 @@
 # Matlab binaries
 *.mat
 
-# Misc
-data/
-
 # IDEs
 .DS_Store
 .vscode

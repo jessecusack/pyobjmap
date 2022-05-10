@@ -3,7 +3,7 @@ channels:
 - conda-forge
 - defaults
 dependencies:
-- python=3
+- python=3.10.*
 - matplotlib
 - numpy
 - pip
@@ -16,3 +16,8 @@ dependencies:
 - sympy
 - black
 - isort
+- jupytext
+- pydap
+- lxml
+- pip:
+    - -e .

@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(name='pyobjmap',
       version='0.1.0',
@@ -14,7 +14,7 @@ setup(name='pyobjmap',
       author='Jesse Cusack',
       author_email='jmcusack@ucsd.edu',
 #      license='MIT',
-#      packages=['pyobjmap'],
+      packages=find_packages(include=["pyobjmap", "pyobjmap.*"], exclude=["data", "docs"]),
       install_requires=[
           'numpy', 'scipy',
       ],
