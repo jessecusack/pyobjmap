@@ -58,6 +58,13 @@ def spherical_polar_gradient(f, lon, lat, r=6371000.0):
     return dfdlon, dfdlat
 
 
+def uv_from_psi(psi, x, y):
+    """Uses cartesian gradient."""
+    v, u = cartesian_gradient(psi, x, y)
+    u = -u
+    return u, v
+
+
 def haversine(theta):
     return 0.5 * (1 - np.cos(theta))
 
